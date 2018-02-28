@@ -1,20 +1,20 @@
 { stdenv, fetchFromGitHub, ncurses, asciidoc, xmlto, docbook_xsl, docbook_xml_dtd_45
-, readline, makeWrapper, git, libiconv, autoreconfHook, findXMLCatalogs
+, readline, makeWrapper, git, libiconv, autoreconfHook, findXMLCatalogs, pkgconfig
 }:
 
 stdenv.mkDerivation rec {
   pname = "tig";
-  version = "2.2.1";
+  version = "2.3.3";
   name = "${pname}-${version}";
 
   src = fetchFromGitHub {
     owner = "jonas";
     repo = pname;
     rev = name;
-    sha256 = "09xiwm57df0vzk8r2hx5p1hwy5f9q8frmdf96aba2ia9837zn3av";
+    sha256 = "1gw5ia6cl5b0q91kv4vfg35my2p49np23aikxqf5gn00zhqrkfap";
   };
 
-  nativeBuildInputs = [ makeWrapper autoreconfHook asciidoc xmlto docbook_xsl docbook_xml_dtd_45 findXMLCatalogs ];
+  nativeBuildInputs = [ makeWrapper autoreconfHook asciidoc xmlto docbook_xsl docbook_xml_dtd_45 findXMLCatalogs pkgconfig ];
 
   autoreconfFlags = "-I tools -v";
 
@@ -39,7 +39,7 @@ stdenv.mkDerivation rec {
   '';
 
   meta = with stdenv.lib; {
-    homepage = "https://jonas.github.io/tig/";
+    homepage = https://jonas.github.io/tig/;
     description = "Text-mode interface for git";
     maintainers = with maintainers; [ garbas bjornfor domenkozar qknight ];
     license = licenses.gpl2;

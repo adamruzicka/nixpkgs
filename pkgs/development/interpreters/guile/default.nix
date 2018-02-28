@@ -1,5 +1,7 @@
 { fetchurl, stdenv, libtool, readline, gmp, pkgconfig, boehmgc, libunistring
-, libffi, gawk, makeWrapper, fetchpatch, coverageAnalysis ? null, gnu ? null }:
+, libffi, gawk, makeWrapper, fetchpatch, coverageAnalysis ? null, gnu ? null
+, hostPlatform
+}:
 
 # Do either a coverage analysis build or a standard build.
 (if coverageAnalysis != null
@@ -8,11 +10,11 @@
 
 (rec {
   name = "guile-${version}";
-  version = "2.2.0";
+  version = "2.2.3";
 
   src = fetchurl {
     url = "mirror://gnu/guile/${name}.tar.xz";
-    sha256 = "05dmvhd1y135x7w5qfw4my42cfp6l8bbhjfxvchcc1cbdvzri0f1";
+    sha256 = "11j01agvnci2cx32wwpqs9078856yxmvs15gcsz7ganpkj2ahlw3";
   };
 
   outputs = [ "out" "dev" "info" ];
@@ -20,8 +22,8 @@
 
   nativeBuildInputs = [ makeWrapper gawk pkgconfig ];
   buildInputs = [ readline libtool libunistring libffi ];
-  propagatedBuildInputs = [ gmp boehmgc ]
 
+  propagatedBuildInputs = [ gmp boehmgc ]
     # XXX: These ones aren't normally needed here, but since
     # `libguile-2.0.la' reads `-lltdl -lunistring', adding them here will add
     # the needed `-L' flags.  As for why the `.la' file lacks the `-L' flags,
@@ -80,7 +82,7 @@
   setupHook = ./setup-hook-2.2.sh;
 
   crossAttrs.preConfigure =
-    stdenv.lib.optionalString (stdenv.cross.config == "i586-pc-gnu")
+    stdenv.lib.optionalString (hostPlatform.isHurd)
        # On GNU, libgc depends on libpthread, but the cross linker doesn't
        # know where to find libpthread, which leads to erroneous test failures
        # in `configure', where `-pthread' and `-lpthread' aren't explicitly

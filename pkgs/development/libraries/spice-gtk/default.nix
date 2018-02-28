@@ -1,4 +1,4 @@
-{ stdenv, fetchurl, pkgconfig, spice_protocol, intltool, celt_0_5_1
+{ stdenv, fetchurl, pkgconfig, spice-protocol, gettext, celt_0_5_1
 , openssl, libpulseaudio, pixman, gobjectIntrospection, libjpeg_turbo, zlib
 , cyrus_sasl, python2Packages, autoreconfHook, usbredir, libsoup
 , gtk3, epoxy }:
@@ -8,29 +8,25 @@ with stdenv.lib;
 let
   inherit (python2Packages) python pygtk;
 in stdenv.mkDerivation rec {
-  name = "spice-gtk-0.33";
+  name = "spice-gtk-0.34";
 
   src = fetchurl {
     url = "http://www.spice-space.org/download/gtk/${name}.tar.bz2";
-    sha256 = "0fdgx9k4vgmasp8i2n0swrkapq8f212igcg7wsgvr3mbhsvk7bvx";
+    sha256 = "1vknp72pl6v6nf3dphhwp29hk6gv787db2pmyg4m312z2q0hwwp9";
   };
 
   buildInputs = [
-    spice_protocol celt_0_5_1 openssl libpulseaudio pixman gobjectIntrospection
+    spice-protocol celt_0_5_1 openssl libpulseaudio pixman gobjectIntrospection
     libjpeg_turbo zlib cyrus_sasl python pygtk usbredir gtk3 epoxy
   ];
 
-  nativeBuildInputs = [ pkgconfig intltool libsoup autoreconfHook ];
+  nativeBuildInputs = [ pkgconfig gettext libsoup autoreconfHook ];
 
   NIX_CFLAGS_COMPILE = "-fno-stack-protector";
 
   preAutoreconf = ''
     substituteInPlace src/Makefile.am \
           --replace '=codegendir pygtk-2.0' '=codegendir pygobject-2.0'
-  '';
-
-  preConfigure = ''
-    intltoolize -f
   '';
 
   configureFlags = [

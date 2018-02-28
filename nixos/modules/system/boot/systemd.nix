@@ -14,7 +14,6 @@ let
   upstreamSystemUnits =
     [ # Targets.
       "basic.target"
-      "busnames.target"
       "sysinit.target"
       "sockets.target"
       "exit.target"
@@ -47,6 +46,7 @@ let
 
       # Consoles.
       "getty.target"
+      "getty-pre.target"
       "getty@.service"
       "serial-getty@.service"
       "console-getty.service"
@@ -63,10 +63,7 @@ let
       "systemd-logind.service"
       "autovt@.service"
       "systemd-user-sessions.service"
-      "dbus-org.freedesktop.login1.service"
       "dbus-org.freedesktop.machine1.service"
-      "org.freedesktop.login1.busname"
-      "org.freedesktop.machine1.busname"
       "user@.service"
 
       # Journal.
@@ -99,7 +96,6 @@ let
       "swap.target"
       "dev-hugepages.mount"
       "dev-mqueue.mount"
-      "proc-sys-fs-binfmt_misc.mount"
       "sys-fs-fuse-connections.mount"
       "sys-kernel-config.mount"
       "sys-kernel-debug.mount"
@@ -155,19 +151,16 @@ let
       "systemd-tmpfiles-setup-dev.service"
 
       # Misc.
-      "org.freedesktop.systemd1.busname"
       "systemd-sysctl.service"
       "dbus-org.freedesktop.timedate1.service"
       "dbus-org.freedesktop.locale1.service"
       "dbus-org.freedesktop.hostname1.service"
-      "org.freedesktop.timedate1.busname"
-      "org.freedesktop.locale1.busname"
-      "org.freedesktop.hostname1.busname"
       "systemd-timedated.service"
       "systemd-localed.service"
       "systemd-hostnamed.service"
       "systemd-binfmt.service"
       "systemd-exit.service"
+      "systemd-update-done.service"
     ]
     ++ cfg.additionalUpstreamSystemUnits;
 
@@ -182,7 +175,6 @@ let
   upstreamUserUnits =
     [ "basic.target"
       "bluetooth.target"
-      "busnames.target"
       "default.target"
       "exit.target"
       "graphical-session-pre.target"
@@ -396,6 +388,11 @@ let
         '';
     };
 
+  logindHandlerType = types.enum [
+    "ignore" "poweroff" "reboot" "halt" "kexec" "suspend"
+    "hibernate" "hybrid-sleep" "lock"
+  ];
+
 in
 
 {
@@ -588,10 +585,31 @@ in
     services.logind.extraConfig = mkOption {
       default = "";
       type = types.lines;
-      example = "HandleLidSwitch=ignore";
+      example = "IdleAction=lock";
       description = ''
         Extra config options for systemd-logind. See man logind.conf for
         available options.
+      '';
+    };
+
+    services.logind.lidSwitch = mkOption {
+      default = "suspend";
+      example = "ignore";
+      type = logindHandlerType;
+
+      description = ''
+        Specifies what to be done when the laptop lid is closed.
+      '';
+    };
+
+    services.logind.lidSwitchDocked = mkOption {
+      default = "ignore";
+      example = "suspend";
+      type = logindHandlerType;
+
+      description = ''
+        Specifies what to be done when the laptop lid is closed
+        and another screen is added.
       '';
     };
 
@@ -613,11 +631,7 @@ in
         Rules for creating and cleaning up temporary files
         automatically. See
         <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for the exact format. You should not use this option to create
-        files required by systemd services, since there is no
-        guarantee that <command>systemd-tmpfiles</command> runs when
-        the system is reconfigured using
-        <command>nixos-rebuild</command>.
+        for the exact format.
       '';
     };
 
@@ -633,16 +647,22 @@ in
         }));
     };
 
+    systemd.user.paths = mkOption {
+      default = {};
+      type = with types; attrsOf (submodule [ { options = pathOptions; } unitConfig ]);
+      description = "Definition of systemd per-user path units.";
+    };
+
     systemd.user.services = mkOption {
       default = {};
       type = with types; attrsOf (submodule [ { options = serviceOptions; } unitConfig serviceConfig ] );
       description = "Definition of systemd per-user service units.";
     };
 
-    systemd.user.timers = mkOption {
+    systemd.user.slices = mkOption {
       default = {};
-      type = with types; attrsOf (submodule [ { options = timerOptions; } unitConfig ] );
-      description = "Definition of systemd per-user timer units.";
+      type = with types; attrsOf (submodule [ { options = sliceOptions; } unitConfig ] );
+      description = "Definition of systemd per-user slice units.";
     };
 
     systemd.user.sockets = mkOption {
@@ -655,6 +675,12 @@ in
       default = {};
       type = with types; attrsOf (submodule [ { options = targetOptions; } unitConfig] );
       description = "Definition of systemd per-user target units.";
+    };
+
+    systemd.user.timers = mkOption {
+      default = {};
+      type = with types; attrsOf (submodule [ { options = timerOptions; } unitConfig ] );
+      description = "Definition of systemd per-user timer units.";
     };
 
     systemd.additionalUpstreamSystemUnits = mkOption {
@@ -721,6 +747,8 @@ in
       "systemd/logind.conf".text = ''
         [Login]
         KillUserProcesses=no
+        HandleLidSwitch=${config.services.logind.lidSwitch}
+        HandleLidSwitchDocked=${config.services.logind.lidSwitchDocked}
         ${config.services.logind.extraConfig}
       '';
 
@@ -753,8 +781,7 @@ in
 
         # Keep a persistent journal. Note that systemd-tmpfiles will
         # set proper ownership/permissions.
-        # FIXME: revert to 0700 with systemd v233.
-        mkdir -m 0750 -p /var/log/journal
+        mkdir -m 0700 -p /var/log/journal
       '';
 
     users.extraUsers.systemd-network.uid = config.ids.uids.systemd-network;
@@ -771,12 +798,12 @@ in
       };
 
     systemd.units =
-      mapAttrs' (n: v: nameValuePair "${n}.target" (targetToUnit n v)) cfg.targets
+         mapAttrs' (n: v: nameValuePair "${n}.path"    (pathToUnit    n v)) cfg.paths
       // mapAttrs' (n: v: nameValuePair "${n}.service" (serviceToUnit n v)) cfg.services
-      // mapAttrs' (n: v: nameValuePair "${n}.socket" (socketToUnit n v)) cfg.sockets
-      // mapAttrs' (n: v: nameValuePair "${n}.timer" (timerToUnit n v)) cfg.timers
-      // mapAttrs' (n: v: nameValuePair "${n}.path" (pathToUnit n v)) cfg.paths
-      // mapAttrs' (n: v: nameValuePair "${n}.slice" (sliceToUnit n v)) cfg.slices
+      // mapAttrs' (n: v: nameValuePair "${n}.slice"   (sliceToUnit   n v)) cfg.slices
+      // mapAttrs' (n: v: nameValuePair "${n}.socket"  (socketToUnit  n v)) cfg.sockets
+      // mapAttrs' (n: v: nameValuePair "${n}.target"  (targetToUnit  n v)) cfg.targets
+      // mapAttrs' (n: v: nameValuePair "${n}.timer"   (timerToUnit   n v)) cfg.timers
       // listToAttrs (map
                    (v: let n = escapeSystemdPath v.where;
                        in nameValuePair "${n}.mount" (mountToUnit n v)) cfg.mounts)
@@ -785,7 +812,9 @@ in
                        in nameValuePair "${n}.automount" (automountToUnit n v)) cfg.automounts);
 
     systemd.user.units =
-         mapAttrs' (n: v: nameValuePair "${n}.service" (serviceToUnit n v)) cfg.user.services
+         mapAttrs' (n: v: nameValuePair "${n}.path"    (pathToUnit    n v)) cfg.user.paths
+      // mapAttrs' (n: v: nameValuePair "${n}.service" (serviceToUnit n v)) cfg.user.services
+      // mapAttrs' (n: v: nameValuePair "${n}.slice"   (sliceToUnit   n v)) cfg.user.slices
       // mapAttrs' (n: v: nameValuePair "${n}.socket"  (socketToUnit  n v)) cfg.user.sockets
       // mapAttrs' (n: v: nameValuePair "${n}.target"  (targetToUnit  n v)) cfg.user.targets
       // mapAttrs' (n: v: nameValuePair "${n}.timer"   (timerToUnit   n v)) cfg.user.timers;
@@ -837,14 +866,19 @@ in
     systemd.services.systemd-remount-fs.restartIfChanged = false;
     systemd.services.systemd-update-utmp.restartIfChanged = false;
     systemd.services.systemd-user-sessions.restartIfChanged = false; # Restart kills all active sessions.
-    systemd.services.systemd-logind.restartTriggers = [ config.environment.etc."systemd/logind.conf".source ];
+    # Restarting systemd-logind breaks X11
+    # - upstream commit: https://cgit.freedesktop.org/xorg/xserver/commit/?id=dc48bd653c7e101
+    # - systemd announcement: https://github.com/systemd/systemd/blob/22043e4317ecd2bc7834b48a6d364de76bb26d91/NEWS#L103-L112
+    # - this might be addressed in the future by xorg
+    #systemd.services.systemd-logind.restartTriggers = [ config.environment.etc."systemd/logind.conf".source ];
+    systemd.services.systemd-logind.restartIfChanged = false;
     systemd.services.systemd-logind.stopIfChanged = false;
     systemd.services.systemd-journald.restartTriggers = [ config.environment.etc."systemd/journald.conf".source ];
     systemd.services.systemd-journald.stopIfChanged = false;
     systemd.targets.local-fs.unitConfig.X-StopOnReconfiguration = true;
     systemd.targets.remote-fs.unitConfig.X-StopOnReconfiguration = true;
     systemd.targets.network-online.wantedBy = [ "multi-user.target" ];
-    systemd.services.systemd-binfmt.wants = [ "proc-sys-fs-binfmt_misc.automount" ];
+    systemd.services.systemd-binfmt.wants = [ "proc-sys-fs-binfmt_misc.mount" ];
 
     # Don't bother with certain units in containers.
     systemd.services.systemd-remount-fs.unitConfig.ConditionVirtualization = "!container";

@@ -1,17 +1,22 @@
-{ stdenv, fetchurl, libgpgerror, gnupg, pkgconfig, glib, pth, libassuan }:
+{ stdenv, fetchurl, fetchpatch, libgpgerror, gnupg, pkgconfig, glib, pth, libassuan
+, qtbase ? null }:
+
+let inherit (stdenv) lib system; in
 
 stdenv.mkDerivation rec {
-  name = "gpgme-1.9.0";
+  name = "gpgme-1.10.0";
 
   src = fetchurl {
     url = "mirror://gnupg/gpgme/${name}.tar.bz2";
-    sha256 = "1ssc0gs02r4fasabk7c6v6r865k2j02mpb5g1vkpbmzsigdzwa8v";
+    sha256 = "14q619lxbk64vz7lih5gjb928qm28jrnn1h3yhsrrff3jw8yv3qs";
   };
 
   outputs = [ "out" "dev" "info" ];
   outputBin = "dev"; # gpgme-config; not so sure about gpgme-tool
 
-  propagatedBuildInputs = [ libgpgerror glib libassuan pth ];
+  propagatedBuildInputs =
+    [ libgpgerror glib libassuan pth ]
+    ++ lib.optional (qtbase != null) qtbase;
 
   nativeBuildInputs = [ pkgconfig gnupg ];
 
@@ -19,12 +24,15 @@ stdenv.mkDerivation rec {
     "--enable-fixed-path=${gnupg}/bin"
   ];
 
-  # https://www.gnupg.org/documentation/manuals/gpgme/Largefile-Support-_0028LFS_0029.html
   NIX_CFLAGS_COMPILE =
-    with stdenv; lib.optional (system == "i686-linux") "-D_FILE_OFFSET_BITS=64";
+    # qgpgme uses Q_ASSERT which retains build inputs at runtime unless
+    # debugging is disabled
+    lib.optional (qtbase != null) "-DQT_NO_DEBUG"
+    # https://www.gnupg.org/documentation/manuals/gpgme/Largefile-Support-_0028LFS_0029.html
+    ++ lib.optional (system == "i686-linux") "-D_FILE_OFFSET_BITS=64";
 
   meta = with stdenv.lib; {
-    homepage = "https://gnupg.org/software/gpgme/index.html";
+    homepage = https://gnupg.org/software/gpgme/index.html;
     description = "Library for making GnuPG easier to use";
     longDescription = ''
       GnuPG Made Easy (GPGME) is a library designed to make access to GnuPG

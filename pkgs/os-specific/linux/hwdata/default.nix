@@ -2,11 +2,11 @@
 
 stdenv.mkDerivation rec {
   name = "hwdata-${version}";
-  version = "0.291";
+  version = "0.309";
 
   src = fetchurl {
-    url = "http://pkgs.fedoraproject.org/repo/pkgs/hwdata/hwdata-0.291.tar.bz2/effe59bf406eb03bb295bd34e0913dd8/hwdata-0.291.tar.bz2";
-    sha256 = "01cq9csryxcrilnqdjd2r8gpaap3mk4968v7y36c7shyyaf9zkym";
+    url = "https://github.com/vcrhonek/hwdata/archive/v0.309.tar.gz";
+    sha256 = "1njx4lhg7a0cawz82x535vk4mslmnfj7nmf8dbq8kgqxiqh6h2c7";
   };
 
   preConfigure = "patchShebangs ./configure";
@@ -14,7 +14,7 @@ stdenv.mkDerivation rec {
   configureFlags = "--datadir=$(prefix)/data";
 
   meta = {
-    homepage = "https://fedorahosted.org/hwdata/";
+    homepage = https://github.com/vcrhonek/hwdata;
     description = "Hardware Database, including Monitors, pci.ids, usb.ids, and video cards";
     license = stdenv.lib.licenses.gpl2;
     platforms = stdenv.lib.platforms.linux;

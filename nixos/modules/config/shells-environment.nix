@@ -36,7 +36,7 @@ in
       default = {};
       description = ''
         A set of environment variables used in the global environment.
-        These variables will be set on shell initialisation.
+        These variables will be set on shell initialisation (e.g. in /etc/profile).
         The value of each variable can be either a string or a list of
         strings.  The latter is concatenated, interspersed with colon
         characters.
@@ -55,7 +55,7 @@ in
 
     environment.profileRelativeEnvVars = mkOption {
       type = types.attrsOf (types.listOf types.str);
-      example = { PATH = [ "/bin" "/sbin" ]; MANPATH = [ "/man" "/share/man" ]; };
+      example = { PATH = [ "/bin" ]; MANPATH = [ "/man" "/share/man" ]; };
       description = ''
         Attribute set of environment variable.  Each attribute maps to a list
         of relative paths.  Each relative path is appended to the each profile

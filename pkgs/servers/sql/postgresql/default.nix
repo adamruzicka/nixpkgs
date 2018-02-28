@@ -1,4 +1,4 @@
-{ lib, stdenv, glibc, fetchurl, zlib, readline, libossp_uuid, openssl, makeWrapper }:
+{ lib, stdenv, glibc, fetchurl, zlib, readline, libossp_uuid, openssl, libxml2, makeWrapper }:
 
 let
 
@@ -11,11 +11,11 @@ let
       inherit sha256;
     };
 
-    outputs = [ "out" "lib" "doc" ];
+    outputs = [ "out" "lib" "doc" "man" ];
     setOutputFlags = false; # $out retains configureFlags :-/
 
     buildInputs =
-      [ zlib readline openssl makeWrapper ]
+      [ zlib readline openssl libxml2 makeWrapper ]
       ++ lib.optionals (!stdenv.isDarwin) [ libossp_uuid ];
 
     enableParallelBuilding = true;
@@ -24,6 +24,7 @@ let
 
     configureFlags = [
       "--with-openssl"
+      "--with-libxml"
       "--sysconfdir=/etc"
       "--libdir=$(lib)/lib"
     ]
@@ -57,16 +58,18 @@ let
         # Prevent a retained dependency on gcc-wrapper.
         substituteInPlace "$out/lib/pgxs/src/Makefile.global" --replace ${stdenv.cc}/bin/ld ld
 
-        # Remove static libraries in case dynamic are available.
-        for i in $out/lib/*.a; do
-          name="$(basename "$i")"
-          if [ -e "$lib/lib/''${name%.a}.so" ] || [ -e "''${i%.a}.so" ]; then
-            rm "$i"
-          fi
-        done
+        if [ -z "''${dontDisableStatic:-}" ]; then
+          # Remove static libraries in case dynamic are available.
+          for i in $out/lib/*.a; do
+            name="$(basename "$i")"
+            if [ -e "$lib/lib/''${name%.a}.so" ] || [ -e "''${i%.a}.so" ]; then
+              rm "$i"
+            fi
+          done
+        fi
       '';
 
-    postFixup = lib.optionalString (!stdenv.isDarwin)
+    postFixup = lib.optionalString (!stdenv.isDarwin && stdenv.hostPlatform.libc == "glibc")
       ''
         # initdb needs access to "locale" command from glibc.
         wrapProgram $out/bin/initdb --prefix PATH ":" ${glibc.bin}/bin
@@ -79,51 +82,44 @@ let
     };
 
     meta = with lib; {
-      homepage = http://www.postgresql.org/;
+      homepage = https://www.postgresql.org;
       description = "A powerful, open source object-relational database system";
       license = licenses.postgresql;
       maintainers = [ maintainers.ocharles ];
       platforms = platforms.unix;
-      hydraPlatforms = platforms.linux;
     };
   });
 
 in {
 
-  postgresql91 = common {
-    version = "9.1.24";
-    psqlSchema = "9.1";
-    sha256 = "1lz5ibvgz6cxprxlnd7a8iwv387idr7k53bdsvy4bw9ayglq83fy";
-  };
-
-  postgresql92 = common {
-    version = "9.2.20";
-    psqlSchema = "9.2";
-    sha256 = "09lgvl996py3mciybnlv0hycfwfxr41n0wksb2jvxjh0hjpbv2hb";
-  };
-
   postgresql93 = common {
-    version = "9.3.16";
+    version = "9.3.20";
     psqlSchema = "9.3";
-    sha256 = "0wv8qsi0amdhcl1qvkvas3lm37w6zsi818f5fxm6n0ngr155wpw4";
+    sha256 = "1jp6lac4b0q6hb28yrdsl0ymzn75gg59hvp5zasarf3mf3b8l4zb";
   };
 
   postgresql94 = common {
-    version = "9.4.11";
+    version = "9.4.15";
     psqlSchema = "9.4";
-    sha256 = "08wxrk8wdhnz0756dsa8jkj0pqanjfpw7w715lyv10618p853sz3";
+    sha256 = "1i5c67gg4fj38hk07h6w6m4mqak84bhnblqsjbpiamg4x33v7gqj";
   };
 
   postgresql95 = common {
-    version = "9.5.6";
+    version = "9.5.10";
     psqlSchema = "9.5";
-    sha256 = "0bz1b9r249ffjfvldaiah2g78ccwq30ddh8hdvlq61z26inmz7mv";
+    sha256 = "10gjfn16bhzkmlqfsn384w49db0j39bg3n4majwxdpjd17g7lpcl";
   };
 
   postgresql96 = common {
-    version = "9.6.2";
+    version = "9.6.6";
     psqlSchema = "9.6";
-    sha256 = "1jahzqqw5inyvmacic2ihhj5f8z50lapci2fwws91h719ccbb1q1";
+    sha256 = "0m417h30s18rwa7yzkqqcdb22ifpcda2fpg2cyx8bxvjp3ydz71r";
+  };
+
+  postgresql100 = common {
+    version = "10.1";
+    psqlSchema = "10.0";
+    sha256 = "04z7lm4h94625vbncwv98svycqr942n3q47ailqaczkszqjlxjrw";
   };
 
 }

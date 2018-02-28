@@ -1,20 +1,23 @@
 { stdenv, fetchurl, cmake, openblasCompat, superlu, hdf5 }:
 
 stdenv.mkDerivation rec {
-  version = "7.800.1";
+  version = "8.400.0";
   name = "armadillo-${version}";
 
   src = fetchurl {
     url = "mirror://sourceforge/arma/armadillo-${version}.tar.xz";
-    sha256 = "1nxq2jp4jlvinynv0l04rpdzpnkzdsng0d5vi3hilc0hlsjnbnjs";
+    sha256 = "16yxhn904ll48879vmycv84rja28im0mrcfgb03nm7bs8lpvrdjw";
   };
 
   nativeBuildInputs = [ cmake ];
   buildInputs = [ openblasCompat superlu hdf5 ];
 
-  cmakeFlags = [ "-DDETECT_HDF5=ON" ];
+  cmakeFlags = [
+    "-DLAPACK_LIBRARY=${openblasCompat}/lib/libopenblas${stdenv.hostPlatform.extensions.sharedLibrary}"
+    "-DDETECT_HDF5=ON"
+  ];
 
- patches = [ ./use-unix-config-on-OS-X.patch ];
+  patches = [ ./use-unix-config-on-OS-X.patch ];
 
   meta = with stdenv.lib; {
     description = "C++ linear algebra library";

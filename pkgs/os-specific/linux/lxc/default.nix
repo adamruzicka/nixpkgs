@@ -12,11 +12,11 @@ in
 with stdenv.lib;
 stdenv.mkDerivation rec {
   name = "lxc-${version}";
-  version = "2.0.7";
+  version = "2.1.1";
 
   src = fetchurl {
     url = "https://linuxcontainers.org/downloads/lxc/lxc-${version}.tar.gz";
-    sha256 = "0paz0lgb9dzpgahysad1cr6gz54l6xyhqdx6dzw2kh3fy1sw028w";
+    sha256 = "1xpghrinxhm2072fwmn42pxhjwh7qx6cbsipw4s6g38a8mkklrk8";
   };
 
   nativeBuildInputs = [
@@ -24,17 +24,16 @@ stdenv.mkDerivation rec {
   ];
   buildInputs = [
     libapparmor gnutls libselinux libseccomp cgmanager libnih dbus libcap
-    python3Packages.python systemd
+    python3Packages.python python3Packages.setuptools systemd
   ];
 
   patches = [
     ./support-db2x.patch
-    (fetchurl {
-      name = "CVE-2017-5985.patch";
-      url = "https://github.com/lxc/lxc/commit/d512bd5efb0e407eba350c4e649c464a65b712a3.patch";
-      sha256 = "0v1rhlfviadsxj2wmbl7nqb64p6y2bxm9y43sc44jg3k6mkr0r5c";
-    })
   ];
+
+  postPatch = ''
+    sed -i '/chmod u+s/d' src/lxc/Makefile.am
+  '';
 
   XML_CATALOG_FILES = "${docbook_xml_dtd_45}/xml/dtd/docbook/catalog.xml";
 
@@ -81,7 +80,7 @@ stdenv.mkDerivation rec {
   '';
 
   meta = {
-    homepage = "http://lxc.sourceforge.net";
+    homepage = https://linuxcontainers.org/;
     description = "Userspace tools for Linux Containers, a lightweight virtualization system";
     license = licenses.lgpl21Plus;
 

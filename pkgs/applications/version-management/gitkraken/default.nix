@@ -1,4 +1,4 @@
-{ stdenv, lib, libXcomposite, libgnome_keyring, makeWrapper, udev, curl, alsaLib
+{ stdenv, lib, libXcomposite, libgnome-keyring, makeWrapper, udev, curl, alsaLib
 , libXfixes, atk, gtk2, libXrender, pango, gnome2, cairo, freetype, fontconfig
 , libX11, libXi, libXext, libXcursor, glib, libXScrnSaver, libxkbfile, libXtst
 , nss, nspr, cups, fetchurl, expat, gdk_pixbuf, libXdamage, libXrandr, dbus
@@ -9,11 +9,11 @@ with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "gitkraken-${version}";
-  version = "2.3.3";
+  version = "2.7.0";
 
   src = fetchurl {
     url = "https://release.gitkraken.com/linux/v${version}.deb";
-    sha256 = "a6e235ab1a4c1da755af8218ad819fcac6bc89b1a324aa2c0e430f3805cb1a16";
+    sha256 = "0088vdn47563f0v9zhk1vggn3c2cfg8rhmifc6nw4zbss49si5gp";
   };
 
   libPath = makeLibraryPath [
@@ -47,7 +47,7 @@ stdenv.mkDerivation rec {
     libXrender
     gtk2
     gnome2.GConf
-    libgnome_keyring
+    libgnome-keyring
   ];
 
   nativeBuildInputs = [ makeWrapper ];
@@ -84,7 +84,7 @@ stdenv.mkDerivation rec {
              --set-rpath "$libPath:$out/opt/gitkraken" "$out/opt/gitkraken/gitkraken"
     wrapProgram $out/opt/gitkraken/gitkraken \
       --prefix LD_PRELOAD : "${makeLibraryPath [ curl ]}/libcurl.so.4" \
-      --prefix LD_PRELOAD : "${makeLibraryPath [ libgnome_keyring ]}/libgnome-keyring.so.0"
+      --prefix LD_PRELOAD : "${makeLibraryPath [ libgnome-keyring ]}/libgnome-keyring.so.0"
     mkdir "$out/bin"
     ln -s "$out/opt/gitkraken/gitkraken" "$out/bin/gitkraken"
   '';

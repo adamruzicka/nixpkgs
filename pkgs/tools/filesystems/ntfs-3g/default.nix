@@ -2,7 +2,7 @@
 , crypto ? false, libgcrypt, gnutls, pkgconfig}:
 
 stdenv.mkDerivation rec {
-  pname = "ntfs-3g";
+  pname = "ntfs3g";
   version = "2017.3.23";
   name = "${pname}-${version}";
 
@@ -45,7 +45,7 @@ stdenv.mkDerivation rec {
     '';
 
   meta = with stdenv.lib; {
-    homepage = http://www.tuxera.com/community/open-source-ntfs-3g/;
+    homepage = https://www.tuxera.com/community/open-source-ntfs-3g/;
     description = "FUSE-based NTFS driver with full write support";
     maintainers = with maintainers; [ dezgeg ];
     platforms = platforms.linux;

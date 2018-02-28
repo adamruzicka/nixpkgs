@@ -2,21 +2,22 @@
 , ApplicationServices, CoreServices }:
 
 stdenv.mkDerivation rec {
-  version = "1.11.0";
+  version = "1.19.1";
   name = "libuv-${version}";
 
   src = fetchFromGitHub {
     owner = "libuv";
     repo = "libuv";
     rev = "v${version}";
-    sha256 = "02sm7f3l0shpfz25b77q2jjvlypc1mmz4zpzfgfmiplhgxxaa6la";
+    sha256 = "020jap4xvjns1rgb2kvpf1nib3f2d5fyqh04afgkk32hiag0kn66";
   };
 
   postPatch = let
     toDisable = [
-      "getnameinfo_basic" # probably network-dependent
+      "getnameinfo_basic" "udp_send_hang_loop" # probably network-dependent
       "spawn_setuid_fails" "spawn_setgid_fails" "fs_chown" # user namespaces
       "getaddrinfo_fail" "getaddrinfo_fail_sync"
+      "threadpool_multiple_event_loops" # times out on slow machines
     ]
       # sometimes: timeout (no output), failed uv_listen
       ++ stdenv.lib.optionals stdenv.isDarwin [ "process_title" "emfile" ];

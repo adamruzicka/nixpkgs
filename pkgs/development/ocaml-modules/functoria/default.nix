@@ -1,6 +1,9 @@
-{ stdenv, fetchurl, ocaml, findlib, ocamlbuild, opam, topkg
+{ stdenv, fetchurl, ocaml, findlib, ocamlbuild, topkg
 , bos, cmdliner, ocamlgraph
 }:
+
+if !stdenv.lib.versionAtLeast ocaml.version "4.03"
+then throw "functoria is not available for OCaml ${ocaml.version}" else
 
 stdenv.mkDerivation rec {
 	name = "ocaml${ocaml.version}-functoria-${version}";
@@ -12,7 +15,7 @@ stdenv.mkDerivation rec {
 
 	unpackCmd = "tar xjf $src";
 
-	buildInputs = [ ocaml findlib ocamlbuild opam topkg ];
+	buildInputs = [ ocaml findlib ocamlbuild topkg ];
 	propagatedBuildInputs = [ bos cmdliner ocamlgraph ];
 
 	inherit (topkg) buildPhase installPhase;

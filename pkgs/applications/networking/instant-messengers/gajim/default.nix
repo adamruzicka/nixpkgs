@@ -1,9 +1,6 @@
 { stdenv, fetchurl, autoreconfHook, python, intltool, pkgconfig, libX11
 , ldns, pythonPackages
 
-# Test requirements
-, xvfb_run
-
 , enableJingle ? true, farstream ? null, gst-plugins-bad ? null
 ,                      libnice ? null
 , enableE2E ? true
@@ -25,13 +22,13 @@ with stdenv.lib;
 
 stdenv.mkDerivation rec {
   name = "gajim-${version}";
-  version = "0.16.7";
+  version = "0.16.9";
 
   src = fetchurl {
     name = "${name}.tar.bz2";
     url = "https://dev.gajim.org/gajim/gajim/repository/archive.tar.bz2?"
         + "ref=${name}";
-    sha256 = "18srrsswq09i54gcqqy0ylmrix1rrq43f0b8sz1lijr39h3ayw3j";
+    sha256 = "121dh906zya9n7npyk7b5xama0z3ycy9jl7l5jm39pc86h1winh3";
   };
 
   patches = let
@@ -42,11 +39,11 @@ stdenv.mkDerivation rec {
       #  sha256 = "<replace-with-sha256>";
       #};
     };
-  in mapAttrsToList (name: { rev, sha256 }: fetchurl {
+  in (mapAttrsToList (name: { rev, sha256 }: fetchurl {
     name = "gajim-${name}.patch";
     url = "https://dev.gajim.org/gajim/gajim/commit/${rev}.diff";
     inherit sha256;
-  }) cherries;
+  }) cherries);
 
   postPatch = ''
     sed -i -e '0,/^[^#]/ {
@@ -73,8 +70,6 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [
     autoreconfHook pythonPackages.wrapPython intltool pkgconfig
-    # Test dependencies
-    xvfb_run
   ];
 
   autoreconfPhase = ''
@@ -113,15 +108,14 @@ stdenv.mkDerivation rec {
 
   doInstallCheck = true;
   installCheckPhase = ''
-    XDG_DATA_DIRS="$out/share/gajim''${XDG_DATA_DIRS:+:}$XDG_DATA_DIRS" \
     PYTHONPATH="test:$out/share/gajim/src:''${PYTHONPATH:+:}$PYTHONPATH" \
-      xvfb-run make test
+      make test_nogui
   '';
 
   enableParallelBuilding = true;
 
   meta = {
-    homepage = "http://gajim.org/";
+    homepage = http://gajim.org/;
     description = "Jabber client written in PyGTK";
     license = licenses.gpl3Plus;
     maintainers = [ maintainers.raskin maintainers.aszlig ];

@@ -4,20 +4,34 @@
 
 stdenv.mkDerivation rec {
   name = "brotli-${version}";
-  version = "0.5.2";
+  version = "1.0.2";
 
   src = fetchFromGitHub {
     owner = "google";
     repo = "brotli";
     rev = "v" + version;
-    sha256 = "0wjypkzhbv30x30j2z8ba45r6nm4k98hsa4i42kqx03vzarsr2l4";
+    sha256 = "1rpg16zpr7h6vs7qr6npmqhyw4w5nkp24iq70s4dryn77m0r4mcv";
   };
 
-  buildInputs = [ cmake ];
+  nativeBuildInputs = [ cmake ];
+
+  outputs = [ "out" "dev" "lib" ];
+
+  doCheck = true;
+
+  checkTarget = "test";
 
   # This breaks on Darwin because our cmake hook tries to make a build folder
-  # and the wonderful bazel BUILD file is already there (yay case-insensitivty?)
+  # and the wonderful bazel BUILD file is already there (yay case-insensitivity?)
   prePatch = "rm BUILD";
+
+  # Don't bother with "man" output for now,
+  # it currently only makes the manpages hard to use.
+  postInstall = ''
+    mkdir -p $out/share/man/man{1,3}
+    cp ../docs/*.1 $out/share/man/man1/
+    cp ../docs/*.3 $out/share/man/man3/
+  '';
 
   meta = with stdenv.lib; {
     inherit (src.meta) homepage;

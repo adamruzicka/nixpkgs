@@ -15,18 +15,17 @@ stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  crossAttrs = {
-    CC = stdenv.cross.config + "-gcc";
-  };
-
   # Too red
-  configureFlags = [ "--disable-modern-top" ];
+  configureFlags = [ "--disable-modern-top" ]
+    ++ lib.optionals (stdenv.hostPlatform != stdenv.buildPlatform)
+    [ "ac_cv_func_malloc_0_nonnull=yes"
+      "ac_cv_func_realloc_0_nonnull=yes" ];
 
   meta = {
-    homepage = http://sourceforge.net/projects/procps-ng/;
+    homepage = https://sourceforge.net/projects/procps-ng/;
     description = "Utilities that give information about processes using the /proc filesystem";
     priority = 10; # less than coreutils, which also provides "kill" and "uptime"
     license = lib.licenses.gpl2;
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.linux ++ lib.platforms.cygwin;
   };
 }

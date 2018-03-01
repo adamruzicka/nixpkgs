@@ -22,7 +22,7 @@ let
     pango
     systemd
     xorg.libX11
-    xorg.libXScrnSaver
+    xorg.libxcb
     xorg.libXcomposite
     xorg.libXcursor
     xorg.libXdamage
@@ -31,15 +31,16 @@ let
     xorg.libXi
     xorg.libXrandr
     xorg.libXrender
+    xorg.libXScrnSaver
     xorg.libXtst
   ];
 in
 stdenv.mkDerivation rec {
   name = "keybase-gui-${version}";
-  version = "1.0.18-20170209170023.17b641d";
+  version = "1.0.40-20180127033950.76a4b90c9";
   src = fetchurl {
     url = "https://s3.amazonaws.com/prerelease.keybase.io/linux_binaries/deb/keybase_${version}_amd64.deb";
-    sha256 = "01mr6hyzs208g3ankl4swikna66n85xzn7ig4k7p6hxmnnvplgb3";
+    sha256 = "1pskmwif5nx32d53kz8vbijv61i50kpjwyy53a37rz5nx3hgj3ar";
   };
   phases = ["unpackPhase" "installPhase" "fixupPhase"];
   unpackPhase = ''
@@ -47,7 +48,8 @@ stdenv.mkDerivation rec {
     tar xf data.tar.xz
   '';
   installPhase = ''
-    mkdir -p $out/{bin,share}
+    mkdir -p $out/bin
+    mv usr/share $out/share
     mv opt/keybase $out/share/
 
     cat > $out/bin/keybase-gui <<EOF
@@ -77,6 +79,9 @@ stdenv.mkDerivation rec {
     exec $out/share/keybase/Keybase "\$@"
     EOF
     chmod +x $out/bin/keybase-gui
+
+    substituteInPlace $out/share/applications/keybase.desktop \
+      --replace run_keybase $out/bin/keybase-gui
   '';
   postFixup = ''
     patchelf --set-interpreter $(cat $NIX_CC/nix-support/dynamic-linker) --set-rpath "${libPath}:\$ORIGIN" "$out/share/keybase/Keybase"
@@ -86,6 +91,6 @@ stdenv.mkDerivation rec {
     homepage = https://www.keybase.io/;
     description = "The Keybase official GUI.";
     platforms = platforms.linux;
-    maintainers = with maintainers; [ puffnfresh ];
+    maintainers = with maintainers; [ puffnfresh np ];
   };
 }

@@ -1,15 +1,15 @@
 { stdenv, fetchurl, kernel, kmod }:
 
-assert stdenv.lib.versionOlder kernel.version "4.10";
-
 stdenv.mkDerivation rec {
   name = "ixgbevf-${version}-${kernel.version}";
-  version = "4.0.3";
+  version = "4.3.3";
 
   src = fetchurl {
     url = "mirror://sourceforge/e1000/ixgbevf-${version}.tar.gz";
-    sha256 = "0f95p2d7yhf57qa6fl8nv1rb4x8vwwgh7qhqcqpag0hz19dc3xff";
+    sha256 = "0kq8y0944kaprw445wb8iswdck2jmc0xpkx0iv6idy3r5cc4hvyg";
   };
+
+  nativeBuildInputs = kernel.moduleBuildDependencies;
 
   hardeningDisable = [ "pic" ];
 
@@ -26,5 +26,6 @@ stdenv.mkDerivation rec {
     homepage = https://sourceforge.net/projects/e1000/files/ixgbevf%20stable/;
     license = stdenv.lib.licenses.gpl2;
     priority = 20;
+    broken = (stdenv.lib.versionOlder kernel.version "4.9");
   };
 }

@@ -1,32 +1,30 @@
-{ stdenv, fetchurl, cmake, extra-cmake-modules, makeQtWrapper, qtwebkit, qtscript, grantlee,
+{ mkDerivation, lib, fetchurl,
+  cmake, extra-cmake-modules, qtwebkit, qtscript, grantlee,
   kxmlgui, kwallet, kparts, kdoctools, kjobwidgets, kdesignerplugin,
-  kiconthemes, knewstuff, sqlcipher, qca-qt5, kdelibs4support, kactivities,
-  knotifyconfig, krunner, libofx }:
+  kiconthemes, knewstuff, sqlcipher, qca-qt5, kactivities, karchive,
+  kguiaddons, knotifyconfig, krunner, kwindowsystem, libofx, shared-mime-info
+}:
 
-stdenv.mkDerivation rec {
+mkDerivation rec {
   name = "skrooge-${version}";
-  version = "2.7.0";
+  version = "2.10.5";
 
   src = fetchurl {
     url = "http://download.kde.org/stable/skrooge/${name}.tar.xz";
-    sha256 = "1xrh9nal122rzlv4m0x8qah6zpqb6891al3351piarpk2xgjgj4x";
+    sha256 = "1c1yihypb6qgbzfcrw4ylqr9zivyba10xzvibrmfkrilxi6i582n";
   };
 
-  nativeBuildInputs = [ cmake extra-cmake-modules makeQtWrapper ];
-
-  buildInputs = [ qtwebkit qtscript grantlee kxmlgui kwallet kparts kdoctools
-    kjobwidgets kdesignerplugin kiconthemes knewstuff sqlcipher qca-qt5
-    kdelibs4support kactivities knotifyconfig krunner libofx
+  nativeBuildInputs = [
+    cmake extra-cmake-modules kdoctools shared-mime-info
   ];
 
-  enableParallelBuilding = true;
+  buildInputs = [
+    qtwebkit qtscript grantlee kxmlgui kwallet kparts
+    kjobwidgets kdesignerplugin kiconthemes knewstuff sqlcipher qca-qt5
+    kactivities karchive kguiaddons knotifyconfig krunner kwindowsystem libofx
+  ];
 
-  postInstall = ''
-    wrapQtProgram "$out/bin/skrooge"
-    wrapQtProgram "$out/bin/skroogeconvert"
-  '';
-
-  meta = with stdenv.lib; {
+  meta = with lib; {
     description = "A personal finances manager, powered by KDE";
     license = with licenses; [ gpl3 ];
     maintainers = with maintainers; [ joko ];

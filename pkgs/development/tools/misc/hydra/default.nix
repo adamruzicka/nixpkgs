@@ -1,7 +1,7 @@
 { stdenv, nixUnstable, perlPackages, buildEnv, releaseTools, fetchFromGitHub
 , makeWrapper, autoconf, automake, libtool, unzip, pkgconfig, sqlite, libpqxx
 , gitAndTools, mercurial, darcs, subversion, bazaar, openssl, bzip2, libxslt
-, guile, perl, postgresql92, aws-sdk-cpp, nukeReferences, git, boehmgc
+, guile, perl, postgresql, aws-sdk-cpp, nukeReferences, git, boehmgc
 , docbook_xsl, openssh, gnused, coreutils, findutils, gzip, lzma, gnutar
 , rpm, dpkg, cdrkit, fetchpatch, pixz }:
 
@@ -62,15 +62,15 @@ let
   };
 in releaseTools.nixBuild rec {
   name = "hydra-${version}";
-  version = "2017-03-21";
+  version = "2017-11-21";
 
   inherit stdenv;
 
   src = fetchFromGitHub {
     owner = "NixOS";
     repo = "hydra";
-    rev = "57bc0eaead8c76ffd71ddc49adfacc47bb8a75ac";
-    sha256 = "1kshl6ms42fgh621s1ba3a224rawqzgvl89rq1k6c9qhlplpndd9";
+    rev = "b7bc4384b7b471d1ddf892cb03f16189a66d5a0d";
+    sha256 = "05g37z3ilazzqa5rqj5zljndwxjbvpc18xibh6jlwjwpvg3kpbbh";
   };
 
   buildInputs =
@@ -78,7 +78,7 @@ in releaseTools.nixBuild rec {
       gitAndTools.topGit mercurial darcs subversion bazaar openssl bzip2 libxslt
       guile # optional, for Guile + Guix support
       perlDeps perl nixUnstable
-      postgresql92 # for running the tests
+      postgresql # for running the tests
       (lib.overrideDerivation (aws-sdk-cpp.override {
         apis = ["s3"];
         customMemoryManagement = false;
@@ -104,7 +104,7 @@ in releaseTools.nixBuild rec {
 
   configureFlags = [ "--with-docbook-xsl=${docbook_xsl}/xml/xsl/docbook" ];
 
-  preHook = ''
+  shellHook = ''
     PATH=$(pwd)/src/script:$(pwd)/src/hydra-eval-jobs:$(pwd)/src/hydra-queue-runner:$(pwd)/src/hydra-evaluator:$PATH
     PERL5LIB=$(pwd)/src/lib:$PERL5LIB;
   '';

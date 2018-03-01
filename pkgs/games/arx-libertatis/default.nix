@@ -4,12 +4,12 @@
 
 stdenv.mkDerivation rec {
   name = "arx-libertatis-${version}";
-  version = "2017-02-26";
+  version = "2017-10-30";
 
   src = fetchFromGitHub {
     owner  = "arx";
     repo   = "ArxLibertatis";
-    rev    = "0d2bb46025b2ad0fd5c8bcddd1cc04750282608d";
+    rev    = "e5ea4e8f0f7e86102cfc9113c53daeb0bdee6dd3";
     sha256 = "11z0ndhk802jr3w3z5gfqw064g98v99xin883q1qd36jw96s27p5";
   };
 
@@ -39,7 +39,7 @@ stdenv.mkDerivation rec {
       first-person role-playing game / dungeon crawler
       developed by Arkane Studios.
     '';
-    homepage = "http://arx-libertatis.org/";
+    homepage = http://arx-libertatis.org/;
     license = licenses.gpl3;
     maintainers = with maintainers; [ rnhmjoj ];
     platforms = platforms.linux;

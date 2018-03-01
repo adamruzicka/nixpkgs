@@ -1,10 +1,10 @@
-{ stdenv, fetchurl, pkgconfig, gettext, perl
-, expat, glib, cairo, pango, gdk_pixbuf, atk, at_spi2_atk, gobjectIntrospection
-, xorg, epoxy, json_glib, libxkbcommon, gmp
+{ stdenv, fetchurl, fetchpatch, pkgconfig, gettext, perl
+, expat, glib, cairo, pango, gdk_pixbuf, atk, at-spi2-atk, gobjectIntrospection
+, xorg, epoxy, json-glib, libxkbcommon, gmp
 , waylandSupport ? stdenv.isLinux, wayland, wayland-protocols
 , xineramaSupport ? stdenv.isLinux
 , cupsSupport ? stdenv.isLinux, cups ? null
-, darwin
+, darwin, gnome3
 }:
 
 assert cupsSupport -> cups != null;
@@ -13,7 +13,7 @@ with stdenv.lib;
 
 let
   ver_maj = "3.22";
-  ver_min = "11";
+  ver_min = "28";
   version = "${ver_maj}.${ver_min}";
 in
 stdenv.mkDerivation rec {
@@ -21,7 +21,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "mirror://gnome/sources/gtk+/${ver_maj}/gtk+-${version}.tar.xz";
-    sha256 = "db440670cb6f3c098b076df3735fbc4e69359bd605385e87c90ee48344a804ca";
+    sha256 = "d299612b018cfed7b2c689168ab52b668023708e17c335eb592260d186f15e1f";
   };
 
   outputs = [ "out" "dev" ];
@@ -29,11 +29,18 @@ stdenv.mkDerivation rec {
 
   nativeBuildInputs = [ pkgconfig gettext gobjectIntrospection perl ];
 
-  patches = [ ./3.0-immodules.cache.patch ];
+  patches = [
+    ./3.0-immodules.cache.patch
+    (fetchpatch {
+      name = "Xft-setting-fallback-compute-DPI-properly.patch";
+      url = "https://bug757142.bugzilla-attachments.gnome.org/attachment.cgi?id=344123";
+      sha256 = "0g6fhqcv8spfy3mfmxpyji93k8d4p4q4fz1v9a1c1cgcwkz41d7p";
+    })
+  ];
 
-  buildInputs = [ libxkbcommon epoxy json_glib ];
+  buildInputs = [ libxkbcommon epoxy json-glib ];
   propagatedBuildInputs = with xorg; with stdenv.lib;
-    [ expat glib cairo pango gdk_pixbuf atk at_spi2_atk
+    [ expat glib cairo pango gdk_pixbuf atk at-spi2-atk gnome3.gsettings-desktop-schemas
       libXrandr libXrender libXcomposite libXi libXcursor libSM libICE ]
     ++ optionals waylandSupport [ wayland wayland-protocols ]
     ++ optionals stdenv.isDarwin (with darwin.apple_sdk.frameworks; [ AppKit Cocoa ])
@@ -65,6 +72,8 @@ stdenv.mkDerivation rec {
       --replace '-L${gmp.dev}/lib' '-L${gmp.out}/lib'
     # The updater is needed for nixos env and it's tiny.
     moveToOutput bin/gtk-update-icon-cache "$out"
+    # Launcher
+    moveToOutput bin/gtk-launch "$out"
   '';
 
   meta = with stdenv.lib; {
@@ -81,7 +90,7 @@ stdenv.mkDerivation rec {
       royalties.
     '';
 
-    homepage = http://www.gtk.org/;
+    homepage = https://www.gtk.org/;
 
     license = licenses.lgpl2Plus;
 

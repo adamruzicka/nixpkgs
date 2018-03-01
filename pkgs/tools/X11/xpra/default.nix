@@ -1,7 +1,7 @@
 { stdenv, lib, fetchurl, python2Packages, pkgconfig
 , xorg, gtk2, glib, pango, cairo, gdk_pixbuf, atk
 , makeWrapper, xkbcomp, xorgserver, getopt, xauth, utillinux, which, fontsConf
-, ffmpeg_3_2, x264, libvpx, libwebp
+, ffmpeg, x264, libvpx, libwebp
 , libfakeXinerama
 , gst_all_1, pulseaudioLight, gobjectIntrospection
 , pam }:
@@ -11,15 +11,17 @@ with lib;
 let
   inherit (python2Packages) python cython buildPythonApplication;
 in buildPythonApplication rec {
-  name = "xpra-2.0.1";
-  namePrefix = "";
+  name = "xpra-${version}";
+  version = "2.1.3";
+
   src = fetchurl {
     url = "http://xpra.org/src/${name}.tar.xz";
-    sha256 = "11y2icy24mc337gvppp0ankyl3wxrprlifm7spixvsndyz056mb8";
+    sha256 = "0r0l3p59q05fmvkp3jv8vmny2v8m1vyhqkg6b9r2qgxn1kcxx7rm";
   };
 
+  nativeBuildInputs = [ pkgconfig ];
   buildInputs = [
-    cython pkgconfig
+    cython
 
     xorg.libX11 xorg.renderproto xorg.libXrender xorg.libXi xorg.inputproto xorg.kbproto
     xorg.randrproto xorg.damageproto xorg.compositeproto xorg.xextproto xorg.recordproto
@@ -28,7 +30,7 @@ in buildPythonApplication rec {
 
     pango cairo gdk_pixbuf atk gtk2 glib
 
-    ffmpeg_3_2 libvpx x264 libwebp
+    ffmpeg libvpx x264 libwebp
 
     gobjectIntrospection
     gst_all_1.gstreamer
@@ -49,7 +51,7 @@ in buildPythonApplication rec {
 
   preBuild = ''
     export NIX_CFLAGS_COMPILE="$NIX_CFLAGS_COMPILE $(pkg-config --cflags gtk+-2.0) $(pkg-config --cflags pygtk-2.0) $(pkg-config --cflags xtst)"
-    substituteInPlace xpra/server/auth/pam.py --replace "/lib/libpam.so.1" "${pam}/lib/libpam.so"
+    substituteInPlace xpra/server/auth/pam_auth.py --replace "/lib/libpam.so.1" "${pam}/lib/libpam.so"
   '';
   setupPyBuildFlags = ["--with-Xdummy" "--without-strict"];
 
@@ -73,6 +75,8 @@ in buildPythonApplication rec {
 
   meta = {
     homepage = http://xpra.org/;
+    downloadPage = "https://xpra.org/src/";
+    downloadURLRegexp = "xpra-.*[.]tar[.]xz$";
     description = "Persistent remote applications for X";
     platforms = platforms.linux;
     maintainers = with maintainers; [ tstrobel offline ];

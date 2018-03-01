@@ -1,4 +1,6 @@
-{ stdenv, fetchurl, m4, cxx ? true, withStatic ? false }:
+{ stdenv, fetchurl, m4, cxx ? true
+, buildPackages
+, withStatic ? false }:
 
 let inherit (stdenv.lib) optional optionalString; in
 
@@ -16,6 +18,7 @@ let self = stdenv.mkDerivation rec {
   outputs = [ "out" "dev" "info" ];
   passthru.static = self.out;
 
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
   nativeBuildInputs = [ m4 ];
 
   configureFlags =
@@ -39,14 +42,14 @@ let self = stdenv.mkDerivation rec {
       configureFlagsArray+=("--build=$(./configfsf.guess)")
     '';
 
-  doCheck = true;
+  doCheck = true; # not cross;
 
   dontDisableStatic = withStatic;
 
   enableParallelBuilding = true;
 
   meta = with stdenv.lib; {
-    homepage = "http://gmplib.org/";
+    homepage = https://gmplib.org/;
     description = "GNU multiple precision arithmetic library";
     license = licenses.gpl3Plus;
 

@@ -1,12 +1,12 @@
 { stdenv, fetchurl, config, makeWrapper
 , gconf
 , alsaLib
-, at_spi2_atk
+, at-spi2-atk
 , atk
 , cairo
 , cups
 , curl
-, dbus_glib
+, dbus-glib
 , dbus_libs
 , fontconfig
 , freetype
@@ -27,7 +27,7 @@
 , libXinerama
 , libXrender
 , libXt
-, libcanberra_gtk2
+, libcanberra-gtk2
 , libgnome
 , libgnomeui
 , defaultIconTheme
@@ -46,7 +46,7 @@
 assert stdenv.isLinux;
 
 # imports `version` and `sources`
-with (import ./sources.nix);
+with (import ./release_sources.nix);
 
 let
   arch = if stdenv.system == "i686-linux"
@@ -82,12 +82,12 @@ stdenv.mkDerivation {
     [ stdenv.cc.cc
       gconf
       alsaLib
-      at_spi2_atk
+      at-spi2-atk
       atk
       cairo
       cups
       curl
-      dbus_glib
+      dbus-glib
       dbus_libs
       fontconfig
       freetype
@@ -108,7 +108,7 @@ stdenv.mkDerivation {
       libXinerama
       libXrender
       libXt
-      libcanberra_gtk2
+      libcanberra-gtk2
       libgnome
       libgnomeui
       mesa
@@ -163,6 +163,7 @@ stdenv.mkDerivation {
   passthru.updateScript = import ./../../browsers/firefox-bin/update.nix {
     inherit name writeScript xidel coreutils gnused gnugrep curl gnupg;
     baseName = "thunderbird";
+    channel = "release";
     basePath = "pkgs/applications/networking/mailreaders/thunderbird-bin";
     baseUrl = "http://archive.mozilla.org/pub/thunderbird/releases/";
   };

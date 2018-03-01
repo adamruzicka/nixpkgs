@@ -3,11 +3,11 @@
 stdenv.mkDerivation rec {
   pname = "lttng-modules-${version}";
   name = "${pname}-${kernel.version}";
-  version = "2.9.1";
+  version = "2.10.5";
 
   src = fetchurl {
     url = "http://lttng.org/files/lttng-modules/lttng-modules-${version}.tar.bz2";
-    sha256 = "0m0d8sp7fj1qha7qz1204yzpsyfd8a8fawjbvdlmk9jc4piqy1v2";
+    sha256 = "07rs01zwr4bmjamplix5qz1c6mb6wdawb68vyn0w6wx68ppbpnxq";
   };
 
   hardeningDisable = [ "pic" ];
@@ -29,10 +29,8 @@ stdenv.mkDerivation rec {
     license = with licenses; [ lgpl21 gpl2 mit ];
     platforms = platforms.linux;
     maintainers = [ maintainers.bjornfor ];
-    broken =
-      (builtins.compareVersions kernel.version "3.18" == -1) ||
-      (kernel.features.grsecurity or false) ||
-      (kernel.features.chromiumos or false);
+    broken = builtins.compareVersions kernel.version "3.18" == -1
+      || builtins.compareVersions kernel.version "4.11" == 1;
   };
 
 }

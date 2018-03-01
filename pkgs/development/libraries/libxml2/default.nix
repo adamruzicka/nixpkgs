@@ -1,30 +1,23 @@
 { stdenv, lib, fetchurl, fetchpatch
 , zlib, xz, python2, findXMLCatalogs, libiconv
-, pythonSupport ? (! stdenv ? cross)
-, icuSupport ? false, icu ? null }:
+, buildPlatform, hostPlatform
+, pythonSupport ? buildPlatform == hostPlatform
+, icuSupport ? false, icu ? null
+}:
 
 let
   python = python2;
 
 in stdenv.mkDerivation rec {
   name = "libxml2-${version}";
-  version = "2.9.4";
+  version = "2.9.7";
 
   src = fetchurl {
     url = "http://xmlsoft.org/sources/${name}.tar.gz";
-    sha256 = "0g336cr0bw6dax1q48bblphmchgihx9p1pjmxdnrd6sh3qci3fgz";
+    sha256 = "034hylzspvkm0p4bczqbf8q05a7r2disr8dz725x4bin61ymwg7n";
   };
 
-  patches = [
-    (fetchpatch {
-      # Contains fixes for CVE-2016-{4658,5131} and other bugs.
-      name = "misc.patch";
-      url = "https://git.gnome.org/browse/libxml2/patch/?id=e905f081&id2=v2.9.4";
-      sha256 = "14rnzilspmh92bcpwbd6kqikj36gx78al42ilgpqgl1609krb5m5";
-    })
-  ];
-
-  outputs = [ "bin" "dev" "out" "doc" ]
+  outputs = [ "bin" "dev" "out" "man" "doc" ]
     ++ lib.optional pythonSupport "py";
   propagatedBuildOutputs = "out bin" + lib.optionalString pythonSupport " py";
 
@@ -43,9 +36,10 @@ in stdenv.mkDerivation rec {
 
   enableParallelBuilding = true;
 
-  doCheck = !stdenv.isDarwin;
+  doCheck = (stdenv.hostPlatform == stdenv.buildPlatform) && !stdenv.isDarwin &&
+    hostPlatform.libc != "musl";
 
-  crossAttrs = lib.optionalAttrs (stdenv.cross.libc == "msvcrt") {
+  crossAttrs = lib.optionalAttrs (hostPlatform.libc == "msvcrt") {
     # creating the DLL is broken ATM
     dontDisableStatic = true;
     configureFlags = configureFlags ++ [ "--disable-shared" ];
@@ -70,7 +64,7 @@ in stdenv.mkDerivation rec {
   meta = {
     homepage = http://xmlsoft.org/;
     description = "An XML parsing library for C";
-    license = "bsd";
+    license = lib.licenses.mit;
     platforms = lib.platforms.unix;
     maintainers = [ lib.maintainers.eelco ];
   };

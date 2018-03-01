@@ -3,13 +3,13 @@
 
 stdenv.mkDerivation rec {
   name = "libtoxcore-${version}";
-  version = "0.1.7";
+  version = "0.1.11";
 
   src = fetchFromGitHub {
     owner  = "TokTok";
     repo   = "c-toxcore";
     rev    = "v${version}";
-    sha256 = "11lqq825id174xdjxm0cy5dbyvmdy841hjy9q3l51yiya9f82d5b";
+    sha256 = "1fya5gfiwlpk6fxhalv95n945ymvp2iidiyksrjw1xw95fzsp1ij";
   };
 
   cmakeFlags = [
@@ -19,12 +19,16 @@ stdenv.mkDerivation rec {
   ];
 
   buildInputs = [
-    libsodium libmsgpack ncurses
+    libsodium libmsgpack ncurses libconfig
   ] ++ stdenv.lib.optionals (!stdenv.isArm) [
     libopus
     libvpx
   ];
+
   nativeBuildInputs = [ cmake pkgconfig ];
+
+  enableParallelBuilding = true;
+
   checkInputs = [ check ];
 
   checkPhase = "ctest";
@@ -33,7 +37,8 @@ stdenv.mkDerivation rec {
   doCheck = true;
 
   meta = with stdenv.lib; {
-    description = "P2P FOSS instant messaging application aimed to replace Skype with crypto";
+    description = "P2P FOSS instant messaging application aimed to replace Skype";
+    homepage = https://tox.chat;
     license = licenses.gpl3Plus;
     maintainers = with maintainers; [ peterhoeg ];
     platforms = platforms.all;

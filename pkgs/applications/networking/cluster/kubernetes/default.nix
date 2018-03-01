@@ -1,4 +1,4 @@
-{ stdenv, lib, fetchFromGitHub, removeReferencesTo, which, go, go-bindata, makeWrapper, rsync
+{ stdenv, lib, fetchFromGitHub, fetchpatch, removeReferencesTo, which, go, go-bindata, makeWrapper, rsync
 , iptables, coreutils
 , components ? [
     "cmd/kubeadm"
@@ -8,9 +8,7 @@
     "cmd/kube-controller-manager"
     "cmd/kube-proxy"
     "plugin/cmd/kube-scheduler"
-    "cmd/kube-dns"
-    "federation/cmd/federation-apiserver"
-    "federation/cmd/federation-controller-manager"
+    "test/e2e/e2e.test"
   ]
 }:
 
@@ -18,18 +16,26 @@ with lib;
 
 stdenv.mkDerivation rec {
   name = "kubernetes-${version}";
-  version = "1.5.6";
+  version = "1.9.1";
 
   src = fetchFromGitHub {
     owner = "kubernetes";
     repo = "kubernetes";
     rev = "v${version}";
-    sha256 = "0mkg4vgz9szgq1k5ignkdr5gmg703xlq8zsrr422a1qfqb8zp15w";
+    sha256 = "1dmq2g138h7fsswmq4l47b44gsl9anmm3ywqyi7y48f1rkvc11mk";
   };
 
   buildInputs = [ removeReferencesTo makeWrapper which go rsync go-bindata ];
 
   outputs = ["out" "man" "pause"];
+
+  patches = [
+    # patch is from https://github.com/kubernetes/kubernetes/pull/58207
+    (fetchpatch {
+      url = "https://github.com/kubernetes/kubernetes/commit/a990b04dc8a7d8408a71eee40db93621cf2b6d1b.patch";
+      sha256 = "0piqilc5c9frikl74hamkffawwg1mvdwfxqvjnmk6wdma43dbb7w";
+    })
+  ];
 
   postPatch = ''
     substituteInPlace "hack/lib/golang.sh" --replace "_cgo" ""
@@ -54,6 +60,10 @@ stdenv.mkDerivation rec {
     cp _output/local/go/bin/* "$out/bin/"
     cp build/pause/pause "$pause/bin/pause"
     cp -R docs/man/man1 "$man/share/man"
+
+    cp cluster/addons/addon-manager/kube-addons.sh $out/bin/kube-addons
+    patchShebangs $out/bin/kube-addons
+    wrapProgram $out/bin/kube-addons --set "KUBECTL_BIN" "$out/bin/kubectl"
 
     $out/bin/kubectl completion bash > $out/share/bash-completion/completions/kubectl
   '';

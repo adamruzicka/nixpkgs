@@ -1,126 +1,155 @@
-{ stdenv
-, fetchurl
-, buildPythonPackage
-, isPy35, isPy27
-, cudaSupport ? false
-, cudatoolkit ? null
-, cudnn ? null
-, gcc49 ? null
-, linuxPackages ? null
-, numpy
-, six
-, protobuf3_2
-, swig
-, mock
-, gcc
-, zlib
+{ stdenv, buildBazelPackage, lib, fetchFromGitHub, fetchpatch, symlinkJoin
+, buildPythonPackage, isPy3k, pythonOlder, pythonAtLeast
+, which, swig, binutils, glibcLocales
+, python, jemalloc, openmpi
+, numpy, six, protobuf, tensorflow-tensorboard, backports_weakref, mock, enum34, absl-py
+, cudaSupport ? false, nvidia_x11 ? null, cudatoolkit ? null, cudnn ? null
+# XLA without CUDA is broken
+, xlaSupport ? cudaSupport
+# Default from ./configure script
+, cudaCapabilities ? [ "3.5" "5.2" ]
+, sse42Support ? false
+, avx2Support ? false
+, fmaSupport ? false
 }:
 
-assert cudaSupport -> cudatoolkit != null
-                   && cudnn != null
-                   && gcc49 != null
-                   && linuxPackages != null;
+assert cudaSupport -> nvidia_x11 != null
+                   && cudatoolkit != null
+                   && cudnn != null;
 
 # unsupported combination
 assert ! (stdenv.isDarwin && cudaSupport);
 
-# tensorflow is built from a downloaded wheel, because the upstream
-# project's build system is an arcane beast based on
-# bazel. Untangling it and building the wheel from source is an open
-# problem.
+let
 
-buildPythonPackage rec {
+  withTensorboard = pythonOlder "3.6";
+
+  cudatoolkit_joined = symlinkJoin {
+    name = "${cudatoolkit.name}-unsplit";
+    paths = [ cudatoolkit.out cudatoolkit.lib ];
+  };
+
+  tfFeature = x: if x then "1" else "0";
+
+  version = "1.5.0";
+
+  pkg = buildBazelPackage rec {
+    name = "tensorflow-build-${version}";
+
+    src = fetchFromGitHub {
+      owner = "tensorflow";
+      repo = "tensorflow";
+      rev = "v${version}";
+      sha256 = "1c4djsaip901nasm7a6dsimr02bsv70a7b1g0kysb4n39qpdh22q";
+    };
+
+    patches = [
+      # Fix build with Bazel >= 0.10
+      (fetchpatch {
+        url = "https://github.com/tensorflow/tensorflow/commit/6fcfab770c2672e2250e0f5686b9545d99eb7b2b.patch";
+        sha256 = "0p61za1mx3a7gj1s5lsps16fcw18iwnvq2b46v1kyqfgq77a12vb";
+      })
+      (fetchpatch {
+        url = "https://github.com/tensorflow/tensorflow/commit/3f57956725b553d196974c9ad31badeb3eabf8bb.patch";
+        sha256 = "11dja5gqy0qw27sc9b6yw9r0lfk8dznb32vrqqfcnypk2qmv26va";
+      })
+    ];
+
+    nativeBuildInputs = [ swig which ];
+
+    buildInputs = [ python jemalloc openmpi glibcLocales numpy ]
+      ++ lib.optionals cudaSupport [ cudatoolkit cudnn nvidia_x11 ];
+
+    preConfigure = ''
+      patchShebangs configure
+
+      export PYTHON_BIN_PATH="${python.interpreter}"
+      export PYTHON_LIB_PATH="$NIX_BUILD_TOP/site-packages"
+      export TF_NEED_GCP=1
+      export TF_NEED_HDFS=1
+      export TF_ENABLE_XLA=${tfFeature xlaSupport}
+      export CC_OPT_FLAGS=" "
+      # https://github.com/tensorflow/tensorflow/issues/14454
+      export TF_NEED_MPI=${tfFeature cudaSupport}
+      export TF_NEED_CUDA=${tfFeature cudaSupport}
+      ${lib.optionalString cudaSupport ''
+        export CUDA_TOOLKIT_PATH=${cudatoolkit_joined}
+        export TF_CUDA_VERSION=${cudatoolkit.majorVersion}
+        export CUDNN_INSTALL_PATH=${cudnn}
+        export TF_CUDNN_VERSION=${cudnn.majorVersion}
+        export GCC_HOST_COMPILER_PATH=${cudatoolkit.cc}/bin/gcc
+        export TF_CUDA_COMPUTE_CAPABILITIES=${lib.concatStringsSep "," cudaCapabilities}
+      ''}
+
+      mkdir -p "$PYTHON_LIB_PATH"
+    '';
+
+    NIX_LDFLAGS = lib.optionals cudaSupport [ "-lcublas" "-lcudnn" "-lcuda" "-lcudart" ];
+
+    hardeningDisable = [ "all" ];
+
+    bazelFlags = [ "--config=opt" ]
+                 ++ lib.optional sse42Support "--copt=-msse4.2"
+                 ++ lib.optional avx2Support "--copt=-mavx2"
+                 ++ lib.optional fmaSupport "--copt=-mfma"
+                 ++ lib.optional cudaSupport "--config=cuda";
+
+    bazelTarget = "//tensorflow/tools/pip_package:build_pip_package";
+
+    fetchAttrs = {
+      preInstall = ''
+        rm -rf $bazelOut/external/{bazel_tools,\@bazel_tools.marker,local_*,\@local_*}
+      '';
+
+      sha256 = "1nc98aqrp14q7llypcwaa0kdn9xi7r0p1mnd3vmmn1m299py33ca";
+    };
+
+    buildAttrs = {
+      preBuild = ''
+        patchShebangs .
+        find -type f -name CROSSTOOL\* -exec sed -i \
+          -e 's,/usr/bin/ar,${binutils.bintools}/bin/ar,g' \
+          {} \;
+      '';
+
+      installPhase = ''
+        sed -i 's,.*bdist_wheel.*,cp -rL . "$out"; exit 0,' bazel-bin/tensorflow/tools/pip_package/build_pip_package 
+        bazel-bin/tensorflow/tools/pip_package/build_pip_package $PWD/dist
+      '';
+    };
+
+    dontFixup = true;
+  };
+
+in buildPythonPackage rec {
   pname = "tensorflow";
-  version = "1.0.0";
+  inherit version;
   name = "${pname}-${version}";
-  format = "wheel";
-  disabled = ! (isPy35 || isPy27);
 
-  src = let
-      tfurl = sys: proc: pykind:
-        let
-          tfpref = if proc == "gpu"
-            then "gpu/tensorflow_gpu"
-            else "cpu/tensorflow";
-        in
-        "https://storage.googleapis.com/tensorflow/${sys}/${tfpref}-${version}-${pykind}.whl";
-      dls =
-        {
-        darwin.cpu = {
-          py2 = {
-            url = tfurl "mac" "cpu" "py2-none-any" ;
-            sha256 = "15ayil28p20wkgpwkr4mz0imjxnf049xx4117jspg1qkjg2bn1b2";
-          };
-          py3 = {
-            url = tfurl "mac" "cpu" "py3-none-any" ;
-            sha256 = "1ynyhbm7yrp421364s49a1r3p83zxy74iiy5c4hx2xm5c4gs29an";
-          };
-        };
-        linux-x86_64.cpu = {
-          py2 = {
-            url = tfurl "linux" "cpu" "cp27-none-linux_x86_64";
-            sha256 = "1hwhq1qhjrfkqfkxpsrq6mdmdibnqr3n7xvzkxp6gaqj73vn5ch2";
-          };
-          py3 = {
-            url = tfurl "linux" "cpu" "cp35-cp35m-linux_x86_64";
-            sha256 = "0jx2mmlw0nxah9l25r46i7diqiv31qcz7855n250lsxfwcppy7y3";
-          };
-        };
-        linux-x86_64.cuda = {
-          py2 = {
-            url = tfurl "linux" "gpu" "cp27-none-linux_x86_64";
-            sha256 = "0l8f71x3ama5a6idj05jrswlmp4yg37fxhz8lx2xmgk14aszbcy5";
-          };
-          py3 = {
-            url = tfurl "linux" "gpu" "cp35-cp35m-linux_x86_64";
-            sha256 = "12q7s0yk0h3r4glh0fhl1fcdx7jl8xikwwp04a1lcagasr51s36m";
-          };
-        };
-      };
-    in
-    fetchurl (
-      if stdenv.isDarwin then
-        if isPy35 then
-          dls.darwin.cpu.py3
-        else
-          dls.darwin.cpu.py2
-      else if isPy35 then
-        if cudaSupport then
-          dls.linux-x86_64.cuda.py3
-        else dls.linux-x86_64.cpu.py3
-      else
-        if cudaSupport then
-          dls.linux-x86_64.cuda.py2
-        else
-          dls.linux-x86_64.cpu.py2
-    );
+  src = pkg;
 
-  propagatedBuildInputs = with stdenv.lib;
-    [ numpy six protobuf3_2 swig mock ]
-    ++ optionals cudaSupport [ cudatoolkit cudnn gcc49 ];
+  installFlags = lib.optional (!withTensorboard) "--no-dependencies";
 
-  # Note that we need to run *after* the fixup phase because the
-  # libraries are loaded at runtime. If we run in preFixup then
-  # patchelf --shrink-rpath will remove the cuda libraries.
-  postFixup = let
-    rpath = stdenv.lib.makeLibraryPath
-      (if cudaSupport then
-        [ gcc49.cc.lib zlib cudatoolkit cudnn
-          linuxPackages.nvidia_x11 ]
-      else
-        [ gcc.cc.lib zlib ]
-      );
-  in
-  ''
-    find $out -name '*.so' -exec patchelf --set-rpath "${rpath}" {} \;
+  postPatch = lib.optionalString (pythonAtLeast "3.4") ''
+    sed -i '/enum34/d' setup.py
   '';
 
-  doCheck = false;
+  propagatedBuildInputs = [ numpy six protobuf absl-py ]
+                 ++ lib.optional (!isPy3k) mock
+                 ++ lib.optionals (pythonOlder "3.4") [ backports_weakref enum34 ]
+                 ++ lib.optional withTensorboard tensorflow-tensorboard;
+
+  # Actual tests are slow and impure.
+  checkPhase = ''
+    ${python.interpreter} -c "import tensorflow"
+  '';
 
   meta = with stdenv.lib; {
-    description = "TensorFlow helps the tensors flow";
+    description = "Computation using data flow graphs for scalable machine learning";
     homepage = http://tensorflow.org;
     license = licenses.asl20;
+    maintainers = with maintainers; [ jyp abbradar ];
     platforms = with platforms; if cudaSupport then linux else linux ++ darwin;
+    broken = !(xlaSupport -> cudaSupport);
   };
 }

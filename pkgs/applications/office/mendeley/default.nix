@@ -1,6 +1,7 @@
 { fetchurl, stdenv, dpkg, which
+, makeWrapper
 , alsaLib
-, desktop_file_utils
+, desktop-file-utils
 , dbus
 , libcap
 , fontconfig
@@ -14,7 +15,13 @@
 , orc
 , nss
 , nspr
-, qt5
+, qtbase
+, qtsvg
+, qtdeclarative
+, qtwebchannel
+, qtquickcontrols
+, qtwebkit
+, qtwebengine
 , sqlite
 , xorg
 , xlibs
@@ -24,6 +31,8 @@
 # will leave entries on your system after uninstalling mendeley.
 # (they can be removed by running '$out/bin/install-mendeley-link-handler.sh -u')
 , autorunLinkHandler ? true
+# Update script
+, writeScript
 }:
 
 assert stdenv.system == "i686-linux" || stdenv.system == "x86_64-linux";
@@ -36,23 +45,23 @@ let
     then "i386"
     else "amd64";
 
-  shortVersion = "1.17.9-stable";
+  shortVersion = "1.17.13-stable";
 
   version = "${shortVersion}_${arch}";
 
   url = "http://desktop-download.mendeley.com/download/apt/pool/main/m/mendeleydesktop/mendeleydesktop_${version}.deb";
   sha256 = if stdenv.system == arch32
-    then "0z04r3ipwp2vca3qhp3b1zj0m12h023ynmbjsz4sysnd1bb5f2yr"
-    else "0h3m6s3s5283g9w3sm4fszhhnzgmqw49nr0ihvdwyxrgawxmz4vg";
+    then "0q4x62k00whmq8lskphpcxc610cvclxzcr5k0v7pxjxs9sx5yx43"
+    else "01ylyily1hip35z0d4qkdpbzp5yn4r015psc5773xsqlgrnlwjm3";
 
   deps = [
-    qt5.qtbase
-    qt5.qtsvg
-    qt5.qtdeclarative
-    qt5.qtwebchannel
-    qt5.qtquickcontrols
-    qt5.qtwebkit
-    qt5.qtwebengine
+    qtbase
+    qtsvg
+    qtdeclarative
+    qtwebchannel
+    qtquickcontrols
+    qtwebkit
+    qtwebengine
     alsaLib
     dbus
     freetype
@@ -92,8 +101,10 @@ stdenv.mkDerivation {
     sha256 = sha256;
   };
 
-  nativeBuildInputs = [ qt5.makeQtWrapper ];
+  nativeBuildInputs = [ makeWrapper ];
   buildInputs = [ dpkg which ] ++ deps;
+
+  propagatedUserEnvPkgs = [ gconf ];
 
   unpackPhase = "true";
 
@@ -107,10 +118,10 @@ stdenv.mkDerivation {
              $out/bin/mendeleydesktop
     paxmark m $out/bin/mendeleydesktop
 
-    wrapQtProgram $out/bin/mendeleydesktop \
+    wrapProgram $out/bin/mendeleydesktop \
       --add-flags "--unix-distro-build" \
-      ${stdenv.lib.optionalString autorunLinkHandler
-      ''--run "$out/bin/install-mendeley-link-handler.sh $out/bin/mendeleydesktop"''}
+      ${stdenv.lib.optionalString autorunLinkHandler # ignore errors installing the link handler
+      ''--run "$out/bin/install-mendeley-link-handler.sh $out/bin/mendeleydesktop ||:"''}
 
     # Remove bundled qt bits
     rm -rf $out/lib/qt
@@ -118,17 +129,20 @@ stdenv.mkDerivation {
 
     # Patch up link handler script
     wrapProgram $out/bin/install-mendeley-link-handler.sh \
-      --prefix PATH ':' ${stdenv.lib.makeBinPath [ which gconf desktop_file_utils ] }
+      --prefix PATH ':' ${stdenv.lib.makeBinPath [ which gconf desktop-file-utils ] }
   '';
 
   dontStrip = true;
   dontPatchElf = true;
 
-  meta = {
+  updateScript = import ./update.nix { inherit writeScript; };
+
+  meta = with stdenv.lib; {
     homepage = http://www.mendeley.com;
     description = "A reference manager and academic social network";
-    license = stdenv.lib.licenses.unfree;
-    platforms = stdenv.lib.platforms.linux;
+    license = licenses.unfree;
+    platforms = platforms.linux;
+    maintainers  = with maintainers; [ dtzWill ];
   };
 
 }

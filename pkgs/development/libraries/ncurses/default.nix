@@ -3,24 +3,25 @@
 , abiVersion
 , mouseSupport ? false
 , unicode ? true
+, enableStatic ? stdenv.hostPlatform.useAndroidPrebuilt
+, withCxx ? !stdenv.hostPlatform.useAndroidPrebuilt
 
 , gpm
+
+, buildPlatform, hostPlatform
+, buildPackages
 }:
-let
-  version = if abiVersion == "5" then "5.9" else "6.0";
-  sha256 = if abiVersion == "5"
-    then "0fsn7xis81za62afan0vvm38bvgzg5wfmv1m86flqcj0nj7jjilh"
-    else "0q3jck7lna77z5r42f13c4xglc7azd19pxfrjrpgp2yf615w4lgm";
-in
+
 stdenv.mkDerivation rec {
-  name = "ncurses-${version}";
+  version = "6.1";
+  name = "ncurses-${version}" + lib.optionalString (abiVersion == "5") "-abi5-compat";
 
   src = fetchurl {
-    url = "mirror://gnu/ncurses/${name}.tar.gz";
-    inherit sha256;
+    url = "mirror://gnu/ncurses/ncurses-${version}.tar.gz";
+    sha256 = "05qdmbmrrn88ii9f66rkcmcyzp1kb1ymkx7g040lfkd1nkp7w1da";
   };
 
-  patches = [ ./clang.patch ] ++ lib.optional (abiVersion == "5" && stdenv.cc.isGNU) ./gcc-5.patch;
+  patches = lib.optional (!stdenv.cc.isClang) ./clang.patch;
 
   outputs = [ "out" "dev" "man" ];
   setOutputFlags = false; # some aren't supported
@@ -30,12 +31,20 @@ stdenv.mkDerivation rec {
     "--without-debug"
     "--enable-pc-files"
     "--enable-symlinks"
-  ] ++ lib.optional unicode "--enable-widec";
+  ] ++ lib.optional unicode "--enable-widec"
+    ++ lib.optional enableStatic "--enable-static"
+    ++ lib.optional (!withCxx) "--without-cxx"
+    ++ lib.optional (abiVersion == "5") "--with-abi-version=5";
 
   # Only the C compiler, and explicitly not C++ compiler needs this flag on solaris:
   CFLAGS = lib.optionalString stdenv.isSunOS "-D_XOPEN_SOURCE_EXTENDED";
 
-  nativeBuildInputs = [ pkgconfig ];
+  depsBuildBuild = [ buildPackages.stdenv.cc ];
+  nativeBuildInputs = [
+    pkgconfig
+  ] ++ lib.optionals (buildPlatform != hostPlatform) [
+    buildPackages.ncurses
+  ];
   buildInputs = lib.optional (mouseSupport && stdenv.isLinux) gpm;
 
   preConfigure = ''
@@ -54,11 +63,7 @@ stdenv.mkDerivation rec {
            -e '/CPPFLAGS="$CPPFLAGS/s/ -D_XOPEN_SOURCE_EXTENDED//' \
         configure
     CFLAGS=-D_XOPEN_SOURCE_EXTENDED
-  '' + lib.optionalString stdenv.isCygwin ''
-    sed -i -e 's,LIB_SUFFIX="t,LIB_SUFFIX=",' configure
   '';
-
-  selfNativeBuildInput = true;
 
   enableParallelBuilding = true;
 
@@ -113,11 +118,14 @@ stdenv.mkDerivation rec {
     moveToOutput "bin/clear" "$out"
     moveToOutput "bin/reset" "$out"
     moveToOutput "bin/tabs" "$out"
+    moveToOutput "bin/tic" "$out"
     moveToOutput "bin/tput" "$out"
     moveToOutput "bin/tset" "$out"
+    moveToOutput "bin/captoinfo" "$out"
+    moveToOutput "bin/infotocap" "$out"
   '';
 
-  preFixup = ''
+  preFixup = lib.optionalString (!hostPlatform.isCygwin) ''
     rm "$out"/lib/*.a
   '';
 

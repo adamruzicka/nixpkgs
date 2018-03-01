@@ -30,7 +30,11 @@ rec {
 
   diff-so-fancy = callPackage ./diff-so-fancy { };
 
+  ghq = callPackage ./ghq { };
+
   git = appendToName "minimal" gitBase;
+
+  git-fame = callPackage ./git-fame {};
 
   # The full-featured Git.
   gitFull = gitBase.override {
@@ -47,12 +51,18 @@ rec {
   git-annex = pkgs.haskellPackages.git-annex;
   gitAnnex = git-annex;
 
+  git-annex-metadata-gui = libsForQt5.callPackage ./git-annex-metadata-gui {
+    inherit (python3Packages) buildPythonApplication pyqt5 git-annex-adapter;
+  };
+
   git-annex-remote-b2 = callPackage ./git-annex-remote-b2 { };
 
   git-annex-remote-rclone = callPackage ./git-annex-remote-rclone { };
 
   # support for bugzilla
   git-bz = callPackage ./git-bz { };
+
+  git-codeowners = callPackage ./git-codeowners { };
 
   git-cola = callPackage ./git-cola { };
 
@@ -68,9 +78,17 @@ rec {
 
   git-octopus = callPackage ./git-octopus { };
 
+  git-open = callPackage ./git-open { };
+
   git-radar = callPackage ./git-radar { };
 
+  git-recent = callPackage ./git-recent {
+    utillinux = if stdenv.isLinux then utillinuxMinimal else null;
+  };
+
   git-remote-hg = callPackage ./git-remote-hg { };
+
+  git-secret = callPackage ./git-secret { };
 
   git-stree = callPackage ./git-stree { };
 
@@ -81,6 +99,8 @@ rec {
   gitRemoteGcrypt = callPackage ./git-remote-gcrypt { };
 
   gitflow = callPackage ./gitflow { };
+
+  grv = callPackage ./grv { };
 
   hub = callPackage ./hub {
     inherit (darwin) Security;
@@ -97,7 +117,7 @@ rec {
     git = gitSVN;
   };
 
-  svn2git_kde = callPackage ./svn2git-kde { };
+  svn_all_fast_export = libsForQt5.callPackage ./svn-all-fast-export { };
 
   tig = callPackage ./tig { };
 

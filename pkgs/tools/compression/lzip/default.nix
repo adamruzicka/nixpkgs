@@ -2,21 +2,24 @@
 
 stdenv.mkDerivation rec {
   name = "lzip-${version}";
-  version = "1.18";
+  version = "1.20";
 
   buildInputs = [ texinfo ];
 
   src = fetchurl {
     url = "mirror://savannah/lzip/${name}.tar.gz";
-    sha256 = "1p8lvc22sv3damld9ng8y6i8z2dvvpsbi9v7yhr5bc2a20m8iya7";
+    sha256 = "0319q59kb8g324wnj7xzbr7vvlx5bcs13lr34j0zb3kqlyjq2fy9";
   };
 
-  configureFlags = "CPPFLAGS=-DNDEBUG CFLAGS=-O3 CXXFLAGS=-O3";
+  configureFlags = "CPPFLAGS=-DNDEBUG CFLAGS=-O3 CXXFLAGS=-O3" + stdenv.lib.optionalString stdenv.isCross " CXX=${stdenv.cc.targetPrefix}c++";
+
+  setupHook = ./lzip-setup-hook.sh;
 
   doCheck = true;
+  enableParallelBuilding = true;
 
   meta = {
-    homepage = "http://www.nongnu.org/lzip/lzip.html";
+    homepage = http://www.nongnu.org/lzip/lzip.html;
     description = "A lossless data compressor based on the LZMA algorithm";
     license = stdenv.lib.licenses.gpl3Plus;
     platforms = stdenv.lib.platforms.unix;

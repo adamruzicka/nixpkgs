@@ -1,12 +1,12 @@
 { lib, stdenv, fetchurl, pkgconfig, gtk2, pango, perl, python, zip, libIDL
-, libjpeg, zlib, dbus, dbus_glib, bzip2, xorg
+, libjpeg, zlib, dbus, dbus-glib, bzip2, xorg
 , freetype, fontconfig, file, nspr, nss, libnotify
 , yasm, mesa, sqlite, unzip
 , hunspell, libevent, libstartup_notification
 , cairo, gstreamer, gst-plugins-base, icu, libpng, jemalloc
 , autoconf213, which, m4
 , writeScript, xidel, common-updater-scripts, coreutils, gnused, gnugrep, curl
-, enableGTK3 ? false, gtk3, wrapGAppsHook
+, enableGTK3 ? false, gtk3, gnome3, wrapGAppsHook, makeWrapper
 , enableCalendar ? true
 , debugBuild ? false
 , # If you want the resulting program to call itself "Thunderbird" instead
@@ -15,15 +15,18 @@
   # Mozilla Foundation, see
   # http://www.mozilla.org/foundation/trademarks/.
   enableOfficialBranding ? false
+, makeDesktopItem
 }:
 
-stdenv.mkDerivation rec {
+let
+  wrapperTool = if enableGTK3 then wrapGAppsHook else makeWrapper;
+in stdenv.mkDerivation rec {
   name = "thunderbird-${version}";
-  version = "52.0";
+  version = "52.6.0";
 
   src = fetchurl {
     url = "mirror://mozilla/thunderbird/releases/${version}/source/thunderbird-${version}.source.tar.xz";
-    sha512 = "215de8ae386f6f12d7a4338bb03bac956410be0dd4de5cca218e12241e3948c8c2540756e149bfde597cd10e399b4cb4db86619a2aa50a368ba323b413c1f93c";
+    sha512 = "80742c95ed61d1cb2e72b71bb23bdd211a40240ab4393e9f028a38f902547372084a8f56445e2394484be088a7b9801405f3d6618fb2742601cc968bf34427f0";
   };
 
   # New sed no longer tolerates this mistake.
@@ -36,7 +39,7 @@ stdenv.mkDerivation rec {
   # from firefox, but without sound libraries
   buildInputs =
     [ gtk2 zip libIDL libjpeg zlib bzip2
-      dbus dbus_glib pango freetype fontconfig xorg.libXi
+      dbus dbus-glib pango freetype fontconfig xorg.libXi
       xorg.libX11 xorg.libXrender xorg.libXft xorg.libXt file
       nspr nss libnotify xorg.pixman yasm mesa
       xorg.libXScrnSaver xorg.scrnsaverproto
@@ -44,10 +47,10 @@ stdenv.mkDerivation rec {
       hunspell libevent libstartup_notification /* cairo */
       icu libpng jemalloc
     ]
-    ++ lib.optional enableGTK3 gtk3;
+    ++ lib.optionals enableGTK3 [ gtk3 gnome3.defaultIconTheme ];
 
-  # from firefox + m4
-  nativeBuildInputs = [ m4 autoconf213 which gnused pkgconfig perl python ] ++ lib.optional enableGTK3 wrapGAppsHook;
+  # from firefox + m4 + wrapperTool
+  nativeBuildInputs = [ m4 autoconf213 which gnused pkgconfig perl python wrapperTool ];
 
   configureFlags =
     [ # from firefox, but without sound libraries (alsa, libvpx, pulseaudio)
@@ -69,7 +72,6 @@ stdenv.mkDerivation rec {
       "--enable-system-sqlite"
       #"--enable-system-cairo"
       "--enable-startup-notification"
-      "--enable-content-sandbox"            # available since 26.0, but not much info available
       "--disable-crashreporter"
       "--disable-tests"
       "--disable-necko-wifi" # maybe we want to enable this at some point
@@ -100,13 +102,61 @@ stdenv.mkDerivation rec {
       paxmark m ../objdir/dist/bin/xpcshell
     '';
 
+  dontWrapGApps = true; # we do it ourselves
   postInstall =
     ''
       # For grsecurity kernels
       paxmark m $out/lib/thunderbird-[0-9]*/thunderbird
 
-      # Needed to find Mozilla runtime
-      gappsWrapperArgs+=(--argv0 "$out/bin/.thunderbird-wrapped")
+      # TODO: Move to a dev output?
+      rm -rf $out/include $out/lib/thunderbird-devel-* $out/share/idl
+
+      # $binary is a symlink to $target.
+      # We wrap $target by replacing the $binary symlink.
+      local target="$out/lib/thunderbird-${version}/thunderbird"
+      local binary="$out/bin/thunderbird"
+
+      # Wrap correctly, this is needed to
+      # 1) find Mozilla runtime, because argv0 must be the real thing,
+      #    or a symlink thereto. It cannot be the wrapper itself
+      # 2) detect itself as the default mailreader across builds
+      gappsWrapperArgs+=(
+        --argv0 "$target"
+        --set MOZ_APP_LAUNCHER thunderbird
+      )
+      ${
+        # We wrap manually because wrapGAppsHook does not detect the symlink
+        # To mimic wrapGAppsHook, we run it with dontWrapGApps, so
+        # gappsWrapperArgs gets defined correctly
+        lib.optionalString enableGTK3 "wrapGAppsHook"
+      }
+
+      # "$binary" is a symlink, replace it by the wrapper
+      rm "$binary"
+      makeWrapper "$target" "$binary" "''${gappsWrapperArgs[@]}"
+
+      ${ let desktopItem = makeDesktopItem {
+          name = "thunderbird";
+          exec = "thunderbird %U";
+          desktopName = "Thunderbird";
+          icon = "$out/lib/thunderbird-${version}/chrome/icons/default/default256.png";
+          genericName = "Main Reader";
+          categories = "Application;Network";
+          mimeType = stdenv.lib.concatStringsSep ";" [
+            # Email
+            "x-scheme-handler/mailto"
+            "message/rfc822"
+            # Newsgroup
+            "x-scheme-handler/news"
+            "x-scheme-handler/snews"
+            "x-scheme-handler/nntp"
+            # Feed
+            "x-scheme-handler/feed"
+            "application/rss+xml"
+            "application/x-extension-rss"
+          ];
+        }; in desktopItem.buildCommand
+      }
     '';
 
   postFixup =

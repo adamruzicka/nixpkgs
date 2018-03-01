@@ -1,3 +1,4 @@
+{ lib }:
 rec {
 
   /* The identity function
@@ -38,97 +39,24 @@ rec {
   /* Merge two attribute sets shallowly, right side trumps left
 
      Example:
-       mergeAttrs { a = 1; b = 2; } // { b = 3; c = 4; }
+       mergeAttrs { a = 1; b = 2; } { b = 3; c = 4; }
        => { a = 1; b = 3; c = 4; }
   */
   mergeAttrs = x: y: x // y;
 
-
-  # Compute the fixed point of the given function `f`, which is usually an
-  # attribute set that expects its final, non-recursive representation as an
-  # argument:
-  #
-  #     f = self: { foo = "foo"; bar = "bar"; foobar = self.foo + self.bar; }
-  #
-  # Nix evaluates this recursion until all references to `self` have been
-  # resolved. At that point, the final result is returned and `f x = x` holds:
-  #
-  #     nix-repl> fix f
-  #     { bar = "bar"; foo = "foo"; foobar = "foobar"; }
-  #
-  # See https://en.wikipedia.org/wiki/Fixed-point_combinator for further
-  # details.
-  fix = f: let x = f x; in x;
-
-  # A variant of `fix` that records the original recursive attribute set in the
-  # result. This is useful in combination with the `extends` function to
-  # implement deep overriding. See pkgs/development/haskell-modules/default.nix
-  # for a concrete example.
-  fix' = f: let x = f x // { __unfix__ = f; }; in x;
-
-  # Modify the contents of an explicitly recursive attribute set in a way that
-  # honors `self`-references. This is accomplished with a function
-  #
-  #     g = self: super: { foo = super.foo + " + "; }
-  #
-  # that has access to the unmodified input (`super`) as well as the final
-  # non-recursive representation of the attribute set (`self`). `extends`
-  # differs from the native `//` operator insofar as that it's applied *before*
-  # references to `self` are resolved:
-  #
-  #     nix-repl> fix (extends g f)
-  #     { bar = "bar"; foo = "foo + "; foobar = "foo + bar"; }
-  #
-  # The name of the function is inspired by object-oriented inheritance, i.e.
-  # think of it as an infix operator `g extends f` that mimics the syntax from
-  # Java. It may seem counter-intuitive to have the "base class" as the second
-  # argument, but it's nice this way if several uses of `extends` are cascaded.
-  extends = f: rattrs: self: let super = rattrs self; in super // f self super;
-
-  # Compose two extending functions of the type expected by 'extends'
-  # into one where changes made in the first are available in the
-  # 'super' of the second
-  composeExtensions =
-    f: g: self: super:
-      let fApplied = f self super;
-          super' = super // fApplied;
-      in fApplied // g self super';
-
-  # Create an overridable, recursive attribute set. For example:
-  #
-  #     nix-repl> obj = makeExtensible (self: { })
-  #
-  #     nix-repl> obj
-  #     { __unfix__ = «lambda»; extend = «lambda»; }
-  #
-  #     nix-repl> obj = obj.extend (self: super: { foo = "foo"; })
-  #
-  #     nix-repl> obj
-  #     { __unfix__ = «lambda»; extend = «lambda»; foo = "foo"; }
-  #
-  #     nix-repl> obj = obj.extend (self: super: { foo = super.foo + " + "; bar = "bar"; foobar = self.foo + self.bar; })
-  #
-  #     nix-repl> obj
-  #     { __unfix__ = «lambda»; bar = "bar"; extend = «lambda»; foo = "foo + "; foobar = "foo + bar"; }
-  makeExtensible = makeExtensibleWithCustomName "extend";
-
-  # Same as `makeExtensible` but the name of the extending attribute is
-  # customized.
-  makeExtensibleWithCustomName = extenderName: rattrs:
-    fix' rattrs // {
-      ${extenderName} = f: makeExtensibleWithCustomName extenderName (extends f rattrs);
-   };
-
   # Flip the order of the arguments of a binary function.
   flip = f: a: b: f b a;
 
+  # Apply function if argument is non-null
+  mapNullable = f: a: if isNull a then a else f a;
+
   # Pull in some builtins not included elsewhere.
   inherit (builtins)
-    pathExists readFile isBool isFunction
+    pathExists readFile isBool
     isInt add sub lessThan
     seq deepSeq genericClosure;
 
-  inherit (import ./strings.nix) fileContents;
+  inherit (lib.strings) fileContents;
 
   # Return the Nixpkgs version number.
   nixpkgsVersion =
@@ -142,6 +70,52 @@ rec {
   # Return minimum/maximum of two numbers.
   min = x: y: if x < y then x else y;
   max = x: y: if x > y then x else y;
+
+  /* Integer modulus
+
+     Example:
+       mod 11 10
+       => 1
+       mod 1 10
+       => 1
+  */
+  mod = base: int: base - (int * (builtins.div base int));
+
+  /* C-style comparisons
+
+     a < b,  compare a b => -1
+     a == b, compare a b => 0
+     a > b,  compare a b => 1
+  */
+  compare = a: b:
+    if a < b
+    then -1
+    else if a > b
+         then 1
+         else 0;
+
+  /* Split type into two subtypes by predicate `p`, take all elements
+     of the first subtype to be less than all the elements of the
+     second subtype, compare elements of a single subtype with `yes`
+     and `no` respectively.
+
+     Example:
+
+       let cmp = splitByAndCompare (hasPrefix "foo") compare compare; in
+
+       cmp "a" "z" => -1
+       cmp "fooa" "fooz" => -1
+
+       cmp "f" "a" => 1
+       cmp "fooa" "a" => -1
+       # while
+       compare "fooa" "a" => 1
+
+  */
+  splitByAndCompare = p: yes: no: a: b:
+    if p a
+    then if p b then yes a b else -1
+    else if p b then 1 else no a b;
 
   /* Reads a JSON file. */
   importJSON = path:
@@ -161,4 +135,29 @@ rec {
   */
   warn = msg: builtins.trace "WARNING: ${msg}";
   info = msg: builtins.trace "INFO: ${msg}";
+
+  # | Add metadata about expected function arguments to a function.
+  # The metadata should match the format given by
+  # builtins.functionArgs, i.e. a set from expected argument to a bool
+  # representing whether that argument has a default or not.
+  # setFunctionArgs : (a → b) → Map String Bool → (a → b)
+  #
+  # This function is necessary because you can't dynamically create a
+  # function of the { a, b ? foo, ... }: format, but some facilities
+  # like callPackage expect to be able to query expected arguments.
+  setFunctionArgs = f: args:
+    { # TODO: Should we add call-time "type" checking like built in?
+      __functor = self: f;
+      __functionArgs = args;
+    };
+
+  # | Extract the expected function arguments from a function.
+  # This works both with nix-native { a, b ? foo, ... }: style
+  # functions and functions with args set with 'setFunctionArgs'. It
+  # has the same return type and semantics as builtins.functionArgs.
+  # setFunctionArgs : (a → b) → Map String Bool.
+  functionArgs = f: f.__functionArgs or (builtins.functionArgs f);
+
+  isFunction = f: builtins.isFunction f ||
+    (f ? __functor && isFunction (f.__functor f));
 }

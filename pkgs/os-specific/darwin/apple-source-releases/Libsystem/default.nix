@@ -1,11 +1,11 @@
 { stdenv, appleDerivation, cpio, bootstrap_cmds, xnu, Libc, Libm, libdispatch, cctools, Libinfo,
   dyld, Csu, architecture, libclosure, CarbonHeaders, ncurses, CommonCrypto, copyfile,
-  removefile, libresolv, Libnotify, libpthread, mDNSResponder, launchd, libutil, version }:
+  removefile, libresolv, Libnotify, libplatform, libpthread, mDNSResponder, launchd, libutil, version }:
 
 appleDerivation rec {
   phases = [ "unpackPhase" "installPhase" ];
 
-  buildInputs = [ cpio ];
+  nativeBuildInputs = [ cpio ];
 
   installPhase = ''
     export NIX_ENFORCE_PURITY=
@@ -19,11 +19,11 @@ appleDerivation rec {
 
     for dep in ${Libc} ${Libm} ${Libinfo} ${dyld} ${architecture} ${libclosure} ${CarbonHeaders} \
                ${libdispatch} ${ncurses.dev} ${CommonCrypto} ${copyfile} ${removefile} ${libresolv} \
-               ${Libnotify} ${mDNSResponder} ${launchd} ${libutil} ${libpthread}; do
+               ${Libnotify} ${libplatform} ${mDNSResponder} ${launchd} ${libutil} ${libpthread}; do
       (cd $dep/include && find . -name '*.h' | cpio -pdm $out/include)
     done
 
-    (cd ${cctools}/include/mach-o && find . -name '*.h' | cpio -pdm $out/include/mach-o)
+    (cd ${cctools.dev}/include/mach-o && find . -name '*.h' | cpio -pdm $out/include/mach-o)
 
     cat <<EOF > $out/include/TargetConditionals.h
     #ifndef __TARGETCONDITIONALS__
@@ -113,7 +113,6 @@ appleDerivation rec {
     install_name_tool \
       -id $out/lib/libresolv.9.dylib \
       -change "$resolv_libSystem" $out/lib/libSystem.dylib \
-      -delete_rpath ${libresolv}/lib \
       $out/lib/libresolv.9.dylib
     ln -s libresolv.9.dylib $out/lib/libresolv.dylib
   '';

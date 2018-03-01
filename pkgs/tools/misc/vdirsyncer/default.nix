@@ -6,18 +6,19 @@ let
   pythonPackages = python3Packages;
 in
 pythonPackages.buildPythonApplication rec {
-  version = "0.14.1";
+  version = "0.16.4";
   name = "vdirsyncer-${version}";
 
   src = fetchurl {
     url = "mirror://pypi/v/vdirsyncer/${name}.tar.gz";
-    sha256 = "044f01fjd8dpz4y9dm3qcc1a8cihcxxbr1sz6y6fkvglpb6k85y5";
+    sha256 = "03wva48bgv1ad3df6plc9b8xxh6k8bcaxrhlzwh81c9mzn5bspzv";
   };
 
   propagatedBuildInputs = with pythonPackages; [
     click click-log click-threading
     requests_toolbelt
-    requests2
+    requests
+    requests_oauthlib # required for google oauth sync
     atomicwrites
   ];
 

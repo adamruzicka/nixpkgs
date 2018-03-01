@@ -16,21 +16,21 @@
   libogg, libopus, libtheora, libvorbis, libdvdcss, a52dec, fdk_aac,
   lame, ffmpeg, libdvdread, libdvdnav, libbluray,
   mp4v2, mpeg2dec, x264, x265, libmkv,
-  fontconfig, freetype, hicolor_icon_theme,
+  fontconfig, freetype, hicolor-icon-theme,
   glib, gtk3, intltool, libnotify,
-  gst_all_1, dbus_glib, udev, libgudev, libvpx,
+  gst_all_1, dbus-glib, udev, libgudev, libvpx,
   useGtk ? true, wrapGAppsHook ? null, libappindicator-gtk3 ? null
 }:
 
 stdenv.mkDerivation rec {
-  version = "1.0.3";
+  version = "1.0.7";
   name = "handbrake-${version}";
 
   src = fetchFromGitHub {
     owner  = "HandBrake";
     repo   = "HandBrake";
     rev    = "${version}";
-    sha256 = "1r8yzs0xih03p5ybx5096zkvlwxhcmg34047awmda1wq3z3rdjh5";
+    sha256 = "1pdrvicq40s8n23n6k8k097kkjs3ah5wbz1mvxnfy3h2mh5rwk57";
   };
 
   nativeBuildInputs = [
@@ -46,11 +46,13 @@ stdenv.mkDerivation rec {
     lame ffmpeg libdvdread libdvdnav libbluray mp4v2 mpeg2dec x264 x265 libvpx
   ] ++ (lib.optionals useGtk [
     glib gtk3 libappindicator-gtk3 libnotify
-    gst_all_1.gstreamer gst_all_1.gst-plugins-base dbus_glib udev
+    gst_all_1.gstreamer gst_all_1.gst-plugins-base dbus-glib udev
     libgudev
   ]);
 
   dontUseCmakeConfigure = true;
+
+  enableParallelBuilding = true;
 
   preConfigure = ''
     patchShebangs scripts
@@ -83,6 +85,11 @@ stdenv.mkDerivation rec {
 
   preBuild = ''
     cd build
+  '';
+
+  # icon-theme.cache belongs in the icon theme, not in individual packages
+  postInstall = ''
+    rm $out/share/icons/hicolor/icon-theme.cache
   '';
 
   meta = with stdenv.lib; {

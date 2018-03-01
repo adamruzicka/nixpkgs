@@ -16,10 +16,10 @@ let
     It isn't perfect, but it seems to cover a vast majority of use cases.
     Caveat: even if the package is reached by a different means,
     the path above will be shown and not e.g. `${config.services.foo.package}`. */
-  manual = import ../../../doc/manual {
+  manual = import ../../../doc/manual rec {
     inherit pkgs config;
-    version = config.system.nixosRelease;
-    revision = "release-${config.system.nixosRelease}";
+    version = config.system.nixos.release;
+    revision = "release-${version}";
     options =
       let
         scrubbedEval = evalModules {
@@ -62,8 +62,7 @@ let
     name = "nixos-manual";
     desktopName = "NixOS Manual";
     genericName = "View NixOS documentation in a web browser";
-    # TODO: find a better icon (Nix logo + help overlay?)
-    icon = "system-help";
+    icon = "nix-snowflake";
     exec = "${helpScript}/bin/nixos-help";
     categories = "System";
   };
@@ -115,7 +114,7 @@ in
 
     environment.systemPackages =
       [ manual.manual helpScript ]
-      ++ optional config.services.xserver.enable desktopItem
+      ++ optionals config.services.xserver.enable [desktopItem pkgs.nixos-icons]
       ++ optional config.programs.man.enable manual.manpages;
 
     boot.extraTTYs = mkIf cfg.showManual ["tty${toString cfg.ttyNumber}"];
@@ -136,8 +135,9 @@ in
         };
       };
 
-    services.mingetty.helpLine = mkIf cfg.showManual
-      "\nPress <Alt-F${toString cfg.ttyNumber}> for the NixOS manual.";
+      services.mingetty.helpLine = "\nRun `nixos-help` "
+        + lib.optionalString cfg.showManual "or press <Alt-F${toString cfg.ttyNumber}> "
+        + "for the NixOS manual.";
 
   };
 
